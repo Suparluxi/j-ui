@@ -133,9 +133,12 @@ func TestAuthenticatedLifecycleAndTokenReset(t *testing.T) {
 		t.Fatalf("missing CSRF status = %d", rejected.Code)
 	}
 	setup := performJSON(handler, http.MethodPut, "/api/v1/settings/public-host",
-		map[string]any{"publicHost": "node.example.com"}, cookie.String(), session.CSRFToken)
+		map[string]any{"publicHost": "198.51.100.10"}, cookie.String(), session.CSRFToken)
 	if setup.Code != http.StatusOK {
 		t.Fatalf("setup status = %d body=%s", setup.Code, setup.Body.String())
+	}
+	if err := app.Store.SetSetting(context.Background(), "management_host", "panel.example.com"); err != nil {
+		t.Fatal(err)
 	}
 	ipv6PublicHost := performJSON(handler, http.MethodPut, "/api/v1/settings/public-host",
 		map[string]any{"publicHost": "[2001:db8::1]"}, cookie.String(), session.CSRFToken)
@@ -553,7 +556,7 @@ func TestAuthenticatedLifecycleAndTokenReset(t *testing.T) {
 	if err := json.NewDecoder(created.Body).Decode(&createdNode); err != nil {
 		t.Fatal(err)
 	}
-	if createdNode.ExternalAddress != "node.example.com" || createdNode.CurrentOutbound != "native" {
+	if createdNode.ExternalAddress != "198.51.100.10" || createdNode.CurrentOutbound != "native" {
 		t.Fatalf("created node metadata = %#v", createdNode)
 	}
 	manualResidential := performJSON(handler, http.MethodPost, "/api/v1/residential-nodes/manual", map[string]any{

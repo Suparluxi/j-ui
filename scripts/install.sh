@@ -18,6 +18,7 @@ certificate_created=0
 installation_listen=""
 node_start_port=""
 public_host=""
+node_public_host=""
 certificate_mode="auto"
 certificate_path=""
 certificate_key_path=""
@@ -74,11 +75,12 @@ i18n() {
       invalid_yes_no) printf '请输入 Y 或 N。 / Enter Y or N.\n' ;;
       confirm_port) printf '当前节点起始端口为 %s，是否使用默认配置 [Y/n]：' "$1" ;;
       custom_port_prompt) printf '请输入自定义节点起始端口：' ;;
-      confirm_public_host) printf '当前公网地址为 %s，是否使用默认配置 [Y/n]：' "$1" ;;
-      custom_public_host_prompt) printf '请输入自定义域名或 IP 地址：' ;;
-      public_host_unavailable) printf '无法自动获取 VPS 公网 IP，请手动输入域名或 IP。\n' ;;
-      public_host_required) printf '必须配置公网地址；安装已停止。\n' ;;
-      public_host_ipv4_only) printf '公网地址只允许使用 IPv4 或域名，不支持 IPv6。\n' ;;
+      confirm_public_host) printf '当前面板访问地址为 %s，是否使用默认配置 [Y/n]：' "$1" ;;
+      custom_public_host_prompt) printf '请输入面板域名或 IPv4 地址：' ;;
+      public_host_unavailable) printf '无法自动生成面板访问地址，请手动输入域名或 IPv4。\n' ;;
+      public_host_required) printf '必须配置面板访问地址；安装已停止。\n' ;;
+      public_host_ipv4_only) printf '面板访问地址只允许使用 IPv4 或域名，不支持 IPv6。\n' ;;
+      node_public_host_unavailable) printf '无法自动获取 VPS 公网 IPv4；请通过 JUI_NODE_PUBLIC_HOST 指定节点默认 IPv4。\n' ;;
       confirm_certificate) printf '当前证书配置为%s，是否使用默认配置 [Y/n]：' "$1" ;;
       certificate_auto) printf '自动申请 Let’s Encrypt SSL 证书' ;;
       certificate_manual) printf '自定义证书' ;;
@@ -141,11 +143,12 @@ i18n() {
     invalid_yes_no) printf 'Please enter Y or N.\n' ;;
     confirm_port) printf 'The current node start port is %s. Use the default configuration [Y/n]: ' "$1" ;;
     custom_port_prompt) printf 'Enter a custom node start port: ' ;;
-    confirm_public_host) printf 'The current public address is %s. Use the default configuration [Y/n]: ' "$1" ;;
-    custom_public_host_prompt) printf 'Enter a custom domain or IP address: ' ;;
-    public_host_unavailable) printf 'Unable to detect the VPS public IP; enter a domain or IP manually.\n' ;;
-    public_host_required) printf 'A public address is required; installation stopped.\n' ;;
-    public_host_ipv4_only) printf 'The public address must be an IPv4 address or domain name; IPv6 is not supported.\n' ;;
+    confirm_public_host) printf 'The current panel address is %s. Use the default configuration [Y/n]: ' "$1" ;;
+    custom_public_host_prompt) printf 'Enter the panel domain or IPv4 address: ' ;;
+    public_host_unavailable) printf 'Unable to determine a panel address automatically; enter a domain or IPv4 address.\n' ;;
+    public_host_required) printf 'A panel address is required; installation stopped.\n' ;;
+    public_host_ipv4_only) printf 'The panel address must be an IPv4 address or domain name; IPv6 is not supported.\n' ;;
+    node_public_host_unavailable) printf 'Unable to detect the VPS public IPv4 address; set JUI_NODE_PUBLIC_HOST to the default node IPv4 address.\n' ;;
     confirm_certificate) printf 'The current certificate configuration is %s. Use the default configuration [Y/n]: ' "$1" ;;
     certificate_auto) printf 'automatic Let’s Encrypt SSL issuance' ;;
     certificate_manual) printf 'custom' ;;
@@ -369,10 +372,10 @@ render_profile_header() {
   printf '\n%s\n' '═══════════════════════════════════════════'
   if [[ "$language" == "zh-CN" ]]; then
     printf '%s\n' '             J-UI 安装配置'
-    printf '%s\n' '请依次确认节点端口、公网地址、SSL 证书、管理员凭据和 BBR + FQ。'
+    printf '%s\n' '请依次确认节点端口、面板地址、SSL 证书、管理员凭据和 BBR + FQ。'
   else
     printf '%s\n' '         J-UI Installation Profile'
-    printf '%s\n' 'Confirm the node port, public address, SSL certificate, administrator credentials, and BBR + FQ.'
+    printf '%s\n' 'Confirm the node port, panel address, SSL certificate, administrator credentials, and BBR + FQ.'
   fi
   printf '%s\n\n' '═══════════════════════════════════════════'
   printf '%s' "$terminal_reset"
@@ -423,6 +426,7 @@ render_installation_summary() {
     printf '用户名：        %s\n' "$username"
     printf '密码：          %s\n' "$password"
     printf '管理端口：      %s\n' "$management_port"
+    printf '节点公网 IPv4： %s\n' "$node_public_host"
     printf '节点起始端口：  %s\n' "$node_start_port"
     printf '节点 SSL 证书： %s\n' "$certificate_summary"
     if [[ "$bbr_summary" == "BBR + FQ" ]]; then
@@ -448,6 +452,7 @@ render_installation_summary() {
     printf 'Username:        %s\n' "$username"
     printf 'Password:        %s\n' "$password"
     printf 'Management port: %s\n' "$management_port"
+    printf 'Node public IPv4: %s\n' "$node_public_host"
     printf 'Node start port: %s\n' "$node_start_port"
     printf 'Node SSL cert:   %s\n' "$certificate_summary"
     printf 'Congestion:      %s\n' "$bbr_summary"
@@ -765,10 +770,12 @@ if [[ ! "$node_start_port" =~ ^[0-9]+$ ]] ||
   exit 1
 fi
 
-detected_public_host="${JUI_PUBLIC_HOST:-}"
-if [[ -z "$detected_public_host" ]]; then
-  detected_public_host="$(detect_public_ip)"
+node_public_host="${JUI_NODE_PUBLIC_HOST:-$(detect_public_ip)}"
+if ! is_ipv4_address "$node_public_host"; then
+  i18n node_public_host_unavailable >&2
+  exit 1
 fi
+detected_public_host="${JUI_MANAGEMENT_HOST:-${JUI_PUBLIC_HOST:-$node_public_host}}"
 if [[ -n "$detected_public_host" ]]; then
   if ask_yes_no "$(i18n confirm_public_host "$detected_public_host")" yes; then
     public_host="$detected_public_host"
@@ -1000,9 +1007,7 @@ env -u JUI_DATA_DIR -u JUI_CONFIG_DIR -u JUI_SINGBOX_BINARY \
   -u JUI_ENGINE_MODE -u JUI_LISTEN_ADDRESS \
   /usr/local/bin/j-ui set-language "$language"
 configure_args=(configure-install --language "$language" --certificate-mode "$certificate_mode")
-if [[ -n "$public_host" ]]; then
-  configure_args+=(--public-host "$public_host")
-fi
+configure_args+=(--public-host "$node_public_host" --management-host "$public_host")
 if [[ "$certificate_mode" == "manual" ]]; then
   configure_args+=(--certificate-path "$certificate_path" --key-path "$certificate_key_path")
 fi

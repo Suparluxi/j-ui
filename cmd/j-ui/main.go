@@ -417,6 +417,7 @@ func runCommand(cfg config.Config, args []string) error {
 
 type installConfigureOptions struct {
 	publicHost         string
+	managementHost     string
 	language           string
 	certificateMode    string
 	certificatePath    string
@@ -623,16 +624,19 @@ func managementDetails(cfg config.Config) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
-	publicHost, err := app.Store.Setting(context.Background(), "public_host")
-	if err != nil {
-		return "", "", err
+	managementHost, _ := app.Store.Setting(context.Background(), "management_host")
+	if managementHost == "" {
+		managementHost, err = app.Store.Setting(context.Background(), "public_host")
+		if err != nil {
+			return "", "", err
+		}
 	}
 	_, port, err := net.SplitHostPort(cfg.ListenAddress)
 	if err != nil {
 		return "", "", err
 	}
 	webBasePath := "/" + strings.Trim(adminPath, "/") + "/"
-	return webBasePath, managementScheme(cfg) + "://" + net.JoinHostPort(publicHost, port) + webBasePath, nil
+	return webBasePath, managementScheme(cfg) + "://" + net.JoinHostPort(managementHost, port) + webBasePath, nil
 }
 
 func managementScheme(cfg config.Config) string {
@@ -800,6 +804,16 @@ func configureInstall(cfg config.Config, args []string) (err error) {
 			return err
 		}
 	}
+	if options.managementHost != "" {
+		options.managementHost, err = normalizeInstallHost(options.managementHost)
+		if err != nil {
+			return err
+		}
+	} else {
+		// Preserve compatibility with older installers where --public-host
+		// represented both the node address and the panel certificate host.
+		options.managementHost = options.publicHost
+	}
 	if options.cloudflareDomain != "" {
 		options.cloudflareDomain, err = normalizeInstallDomain(options.cloudflareDomain)
 		if err != nil {
@@ -814,6 +828,7 @@ func configureInstall(cfg config.Config, args []string) (err error) {
 	defer app.Close()
 	ctx := context.Background()
 	oldPublicHost, _ := app.Store.Setting(ctx, "public_host")
+	oldManagementHost, _ := app.Store.Setting(ctx, "management_host")
 	oldLanguage, _ := app.Store.Setting(ctx, "ui_language")
 	oldCertificateDefaults, _ := app.Store.Setting(ctx, "certificate_defaults")
 	oldPrerequisites, _ := app.Store.Setting(ctx, "protocol_prerequisites")
@@ -823,6 +838,7 @@ func configureInstall(cfg config.Config, args []string) (err error) {
 			return
 		}
 		_ = app.Store.SetSetting(ctx, "public_host", oldPublicHost)
+		_ = app.Store.SetSetting(ctx, "management_host", oldManagementHost)
 		_ = app.Store.SetSetting(ctx, "ui_language", oldLanguage)
 		_ = app.Store.SetSetting(ctx, "certificate_defaults", oldCertificateDefaults)
 		_ = app.Store.SetSetting(ctx, "protocol_prerequisites", oldPrerequisites)
@@ -830,6 +846,11 @@ func configureInstall(cfg config.Config, args []string) (err error) {
 
 	if options.publicHost != "" {
 		if err = app.Store.SetSetting(ctx, "public_host", options.publicHost); err != nil {
+			return err
+		}
+	}
+	if options.managementHost != "" {
+		if err = app.Store.SetSetting(ctx, "management_host", options.managementHost); err != nil {
 			return err
 		}
 	}
@@ -852,21 +873,21 @@ func configureInstall(cfg config.Config, args []string) (err error) {
 		_ = json.Unmarshal([]byte(oldPrerequisites), &prerequisites)
 	}
 	prerequisitesChanged := false
-	if options.publicHost != "" {
+	if options.managementHost != "" {
 		// An installation profile is authoritative. Never carry a previously
-		// verified HTTPS ingress domain into a reinstall whose public host or
+		// verified HTTPS ingress domain into a reinstall whose management host or
 		// certificate has changed.
 		prerequisites.HTTPSIngressEnabled = false
 		prerequisites.HTTPSIngressDomain = ""
 		prerequisites.HTTPSIngressVerifiedAt = ""
 		prerequisites.HTTPSIngressSimulated = false
 		prerequisitesChanged = true
-		if options.certificateMode == "auto" && net.ParseIP(options.publicHost) == nil {
-			if certificateErr := app.Nodes.VerifyAutomaticCertificate(options.publicHost); certificateErr != nil {
+		if options.certificateMode == "auto" && net.ParseIP(options.managementHost) == nil {
+			if certificateErr := app.Nodes.VerifyAutomaticCertificate(options.managementHost); certificateErr != nil {
 				return fmt.Errorf("verify automatically issued certificate: %w", certificateErr)
 			}
 			prerequisites.HTTPSIngressEnabled = true
-			prerequisites.HTTPSIngressDomain = options.publicHost
+			prerequisites.HTTPSIngressDomain = options.managementHost
 			prerequisites.HTTPSIngressVerifiedAt = time.Now().UTC().Format(time.RFC3339)
 			prerequisites.HTTPSIngressSimulated = app.Config.MockEngine
 		}
@@ -910,6 +931,8 @@ func parseInstallConfigureArgs(args []string) (installConfigureOptions, error) {
 		switch args[index] {
 		case "--public-host":
 			options.publicHost = value
+		case "--management-host":
+			options.managementHost = value
 		case "--language":
 			options.language = value
 		case "--certificate-mode":

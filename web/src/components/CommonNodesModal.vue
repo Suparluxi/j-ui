@@ -6,6 +6,7 @@ import DropdownField from "./DropdownField.vue";
 const props = defineProps<{
   serverName: string;
   publicHost: string;
+  certificateServerName: string;
   certificateMode: "auto" | "manual";
   certificatePath: string;
   certificateKeyPath: string;
@@ -25,7 +26,7 @@ const form = reactive({
   realityPort: props.nextPort,
   hysteriaPort: props.nextPort + Number(protocolMissing("vless_reality")),
   tuicPort: props.nextPort + Number(protocolMissing("vless_reality")) + Number(protocolMissing("hysteria2")),
-  certificateDomain: props.publicHost || "",
+  certificateDomain: props.certificateServerName || props.publicHost || "",
   realityTarget: defaultRealityTarget,
   enabled: true
 });

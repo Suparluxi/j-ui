@@ -17,7 +17,8 @@ describe("CommonNodesModal", () => {
     document.body.append(root);
     mountedApp = createApp({
       render: () => h(CommonNodesModal, {
-        serverName: "云悠JP", publicHost: "node.example.com", certificateMode: "auto",
+        serverName: "云悠JP", publicHost: "198.51.100.10",
+        certificateServerName: "node.example.com", certificateMode: "auto",
         certificatePath: "", certificateKeyPath: "", existingProtocols: [],
         nextPort: 8881,
         error: "", submitting: false, theme: "light", language: "zh-CN",
@@ -55,7 +56,8 @@ describe("CommonNodesModal", () => {
     document.body.append(root);
     mountedApp = createApp({
       render: () => h(CommonNodesModal, {
-        serverName: "云悠JP", publicHost: "node.example.com", certificateMode: "auto",
+        serverName: "云悠JP", publicHost: "198.51.100.10",
+        certificateServerName: "node.example.com", certificateMode: "auto",
         certificatePath: "", certificateKeyPath: "",
         existingProtocols: ["vless_reality", "hysteria2"],
         nextPort: 8883,

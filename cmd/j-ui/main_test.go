@@ -154,6 +154,7 @@ func TestConfigureInstallStoresPublicHostAndCertificateDefaults(t *testing.T) {
 
 	if err := configureInstall(cfg, []string{
 		"--public-host", "198.51.100.10",
+		"--management-host", "panel.example.com",
 		"--language", "en",
 		"--certificate-mode", "auto",
 	}); err != nil {
@@ -167,6 +168,10 @@ func TestConfigureInstallStoresPublicHostAndCertificateDefaults(t *testing.T) {
 	host, err := configured.Store.Setting(context.Background(), "public_host")
 	if err != nil || host != "198.51.100.10" {
 		t.Fatalf("public host = %q, err=%v", host, err)
+	}
+	managementHost, err := configured.Store.Setting(context.Background(), "management_host")
+	if err != nil || managementHost != "panel.example.com" {
+		t.Fatalf("management host = %q, err=%v", managementHost, err)
 	}
 	language, err := configured.Store.Setting(context.Background(), "ui_language")
 	if err != nil || language != "en" {
@@ -237,11 +242,22 @@ func TestParseArgoConfigureArgs(t *testing.T) {
 	}
 }
 
-func TestManagementDetailsUsesPublicHostAndAdminPath(t *testing.T) {
+func TestManagementDetailsUsesManagementHostAndAdminPath(t *testing.T) {
 	root := t.TempDir()
 	cfg := commandTestConfig(root)
 	cfg.ListenAddress = "0.0.0.0:8080"
 	initializeCommandTestState(t, cfg, "2001:db8::10")
+	app, err := application.OpenExisting(context.Background(), cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := app.Store.SetSetting(context.Background(), "management_host", "panel.example.com"); err != nil {
+		app.Close()
+		t.Fatal(err)
+	}
+	if err := app.Close(); err != nil {
+		t.Fatal(err)
+	}
 
 	webBasePath, managementURL, err := managementDetails(cfg)
 	if err != nil {
@@ -250,13 +266,13 @@ func TestManagementDetailsUsesPublicHostAndAdminPath(t *testing.T) {
 	if !strings.HasPrefix(webBasePath, "/manage-") || !strings.HasSuffix(webBasePath, "/") {
 		t.Fatalf("WebBasePath = %q", webBasePath)
 	}
-	if managementURL != "http://[2001:db8::10]:8080"+webBasePath {
+	if managementURL != "http://panel.example.com:8080"+webBasePath {
 		t.Fatalf("management URL = %q", managementURL)
 	}
 	cfg.TLSCertificate = "/etc/letsencrypt/live/example/fullchain.pem"
 	cfg.TLSPrivateKey = "/etc/letsencrypt/live/example/privkey.pem"
 	_, managementURL, err = managementDetails(cfg)
-	if err != nil || managementURL != "https://[2001:db8::10]:8080"+webBasePath {
+	if err != nil || managementURL != "https://panel.example.com:8080"+webBasePath {
 		t.Fatalf("TLS management URL = %q err=%v", managementURL, err)
 	}
 }

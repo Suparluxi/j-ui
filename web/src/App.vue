@@ -1679,6 +1679,7 @@ function residentialNodeFaulted(node: NodeRecord): boolean {
     v-if="showCommonNodes"
     :server-name="String(serverName || 'J-UI')"
     :public-host="publicHost"
+    :certificate-server-name="protocolPrerequisites.certificateServerName || ''"
     :certificate-mode="protocolPrerequisites.certificateMode"
     :certificate-path="protocolPrerequisites.certificatePath || ''"
     :certificate-key-path="protocolPrerequisites.certificateKeyPath || ''"

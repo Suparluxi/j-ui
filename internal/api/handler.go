@@ -818,15 +818,21 @@ func (h *Handler) protocolPrerequisites(ctx context.Context) (protocolPrerequisi
 		settings.CertificatePath = ""
 		settings.CertificateKeyPath = ""
 	}
-	publicHost, _ := h.deps.Store.Setting(ctx, "public_host")
-	if publicHost != "" {
+	certificateHost, _ := h.deps.Store.Setting(ctx, "management_host")
+	if certificateHost == "" {
+		certificateHost = settings.HTTPSIngressDomain
+	}
+	if certificateHost == "" {
+		certificateHost, _ = h.deps.Store.Setting(ctx, "public_host")
+	}
+	if certificateHost != "" {
 		if settings.CertificateMode == "auto" {
-			settings.CertificateReady = h.deps.Nodes.VerifyAutomaticCertificate(publicHost) == nil
+			settings.CertificateReady = h.deps.Nodes.VerifyAutomaticCertificate(certificateHost) == nil
 		} else {
-			settings.CertificateReady = h.deps.Nodes.VerifyCertificate(publicHost, settings.CertificatePath, settings.CertificateKeyPath) == nil
+			settings.CertificateReady = h.deps.Nodes.VerifyCertificate(certificateHost, settings.CertificatePath, settings.CertificateKeyPath) == nil
 		}
 		if settings.CertificateReady {
-			settings.CertificateServerName = publicHost
+			settings.CertificateServerName = certificateHost
 		}
 	}
 	// Legacy checkbox-only records were never verified and must not unlock protocols.
