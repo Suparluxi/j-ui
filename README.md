@@ -12,7 +12,7 @@ J-UI 是面向单台 Linux VPS 的轻量级、自托管 sing-box 管理面板。
 
 ### 选择协议，不必从零填写配置
 
-一键创建 Reality、Hysteria2 和 TUIC 常用节点，也可以单独配置 Trojan、gRPC-Reality、AnyTLS、AnyTLS-Reality、Naive、VLESS-WS 和固定域名 Argo。端口、UUID、密码、密钥、证书与推荐参数由系统自动生成，高级配置仍可按需调整。
+一键创建 Reality、Hysteria2 和 TUIC 常用节点，也可以单独配置 Trojan、gRPC-Reality、AnyTLS、AnyTLS-Reality、VLESS-WS 和固定域名 Argo。端口、UUID、密码、密钥、证书与推荐参数由系统自动生成，高级配置仍可按需调整。
 
 ![节点创建流程](docs/images/readme/node-workflow.svg)
 

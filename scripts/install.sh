@@ -15,7 +15,6 @@ management_firewall_added=0
 acme_firewall_added=0
 certbot_created=0
 certificate_created=0
-node_certificate_created=0
 installation_listen=""
 node_start_port=""
 public_host=""
@@ -606,9 +605,6 @@ cleanup() {
   if [[ $exit_code -ne 0 && $certificate_created -eq 1 && -x /opt/j-ui/certbot/bin/certbot ]]; then
     /opt/j-ui/certbot/bin/certbot delete --non-interactive --cert-name "$public_host" >/dev/null 2>&1 || rollback_failed=1
   fi
-  if [[ $exit_code -ne 0 && $node_certificate_created -eq 1 && -x /opt/j-ui/certbot/bin/certbot ]]; then
-    /opt/j-ui/certbot/bin/certbot delete --non-interactive --cert-name "$node_public_host" >/dev/null 2>&1 || rollback_failed=1
-  fi
   if [[ $exit_code -ne 0 && $certbot_created -eq 1 ]]; then
     rm -rf -- /opt/j-ui/certbot || rollback_failed=1
   fi
@@ -994,14 +990,6 @@ if [[ "$certificate_mode" == "auto" ]]; then
   /usr/local/lib/j-ui/ssl.sh "$public_host"
   if [[ $certificate_existed -eq 0 && -s "/etc/letsencrypt/live/${public_host}/fullchain.pem" ]]; then
     certificate_created=1
-  fi
-  if [[ "$node_public_host" != "$public_host" ]]; then
-    node_certificate_existed=0
-    [[ -s "/etc/letsencrypt/live/${node_public_host}/fullchain.pem" ]] && node_certificate_existed=1
-    /usr/local/lib/j-ui/ssl.sh --certificate-only "$node_public_host"
-    if [[ $node_certificate_existed -eq 0 && -s "/etc/letsencrypt/live/${node_public_host}/fullchain.pem" ]]; then
-      node_certificate_created=1
-    fi
   fi
 fi
 

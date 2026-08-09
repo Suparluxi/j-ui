@@ -284,16 +284,12 @@ func TestRealityGeneratedValuesUseVisaSingaporeByDefault(t *testing.T) {
 	}
 }
 
-func TestAnyTLSAndNaiveCredentials(t *testing.T) {
+func TestAnyTLSCredentials(t *testing.T) {
 	for _, protocol := range []string{model.ProtocolAnyTLS, model.ProtocolAnyTLSReality} {
 		credential, err := generatedCredential(protocol)
 		if err != nil || mapString(credential, "password") == "" {
 			t.Fatalf("unexpected %s credential: %#v, err=%v", protocol, credential, err)
 		}
-	}
-	credential, err := generatedCredential(model.ProtocolNaive)
-	if err != nil || mapString(credential, "username") == "" || mapString(credential, "password") == "" {
-		t.Fatalf("unexpected Naive credential: %#v, err=%v", credential, err)
 	}
 }
 
@@ -321,10 +317,5 @@ func TestApplyCustomCredential(t *testing.T) {
 		"username": "unexpected",
 	}); err == nil {
 		t.Fatal("unsupported credential field was accepted")
-	}
-	if _, err := applyCustomCredential(model.ProtocolNaive, map[string]any{
-		"username": "generated-user", "password": "generated-password",
-	}, map[string]any{"password": "short"}); err == nil {
-		t.Fatal("short password was accepted")
 	}
 }

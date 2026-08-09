@@ -10,14 +10,12 @@ import (
 
 func TestSSLScriptIssuesDomainAndIPv4Certificates(t *testing.T) {
 	for _, test := range []struct {
-		name            string
-		host            string
-		want            string
-		certificateOnly bool
+		name string
+		host string
+		want string
 	}{
 		{name: "domain", host: "node.example.com", want: "-d node.example.com"},
 		{name: "ipv4", host: "198.51.100.10", want: "--preferred-profile shortlived --ip-address 198.51.100.10"},
-		{name: "ipv4 certificate only", host: "198.51.100.11", want: "--preferred-profile shortlived --ip-address 198.51.100.11", certificateOnly: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			root := t.TempDir()
@@ -59,13 +57,7 @@ printf key >"$TEST_LETSENCRYPT/live/$host/privkey.pem"
 				t.Fatal(err)
 			}
 
-			arguments := []string{scriptPath, test.host}
-			if test.certificateOnly {
-				arguments = []string{scriptPath, "--certificate-only", test.host}
-				environmentPath := filepath.Join(root, "etc/j-ui/j-ui.env")
-				writeFixtureFile(t, environmentPath, "JUI_TLS_CERTIFICATE_PATH=/panel/cert.pem\nJUI_TLS_KEY_PATH=/panel/key.pem\n", 0o600)
-			}
-			command := exec.Command("bash", arguments...)
+			command := exec.Command("bash", scriptPath, test.host)
 			command.Env = append(os.Environ(),
 				"TEST_LOG="+logPath,
 				"TEST_LETSENCRYPT="+filepath.Join(root, "etc/letsencrypt"),
@@ -83,18 +75,6 @@ printf key >"$TEST_LETSENCRYPT/live/$host/privkey.pem"
 			if !strings.Contains(string(log), "j-ui ensure-acme-firewall") ||
 				!strings.Contains(string(log), "j-ui close-acme-firewall") {
 				t.Fatalf("temporary ACME firewall lifecycle missing:\n%s", log)
-			}
-			if test.certificateOnly {
-				environment, err := os.ReadFile(filepath.Join(root, "etc/j-ui/j-ui.env"))
-				if err != nil {
-					t.Fatal(err)
-				}
-				if string(environment) != "JUI_TLS_CERTIFICATE_PATH=/panel/cert.pem\nJUI_TLS_KEY_PATH=/panel/key.pem\n" {
-					t.Fatalf("certificate-only mode changed panel TLS settings:\n%s", environment)
-				}
-				if strings.Contains(string(log), "configure-install") {
-					t.Fatalf("certificate-only mode reconfigured panel TLS:\n%s", log)
-				}
 			}
 		})
 	}

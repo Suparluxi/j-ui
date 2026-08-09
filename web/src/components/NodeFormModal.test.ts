@@ -173,19 +173,19 @@ describe("NodeFormModal", () => {
     const options = await protocolOptions(root);
     expect(options.map(option => option.dataset.value)).toEqual([
       "vless_reality", "hysteria2", "tuic", "trojan_tls", "vless_grpc_reality",
-      "anytls", "anytls_reality", "naive", "vless_ws_tls",
+      "anytls", "anytls_reality", "vless_ws_tls",
       "vless_argo"
     ]);
     expect(options.map(option => option.textContent?.trim().split("（")[0])).toEqual([
       "XTLS+Reality", "Hysteria2", "TUIC", "Trojan", "gRPC+Reality",
-      "AnyTLS", "AnyTLS+Reality", "Naive", "VLESS-WS", "Argo"
+      "AnyTLS", "AnyTLS+Reality", "VLESS-WS", "Argo"
     ]);
     expect(options.every(option => option.disabled === false)).toBe(true);
-    for (const protocol of ["XTLS", "Hysteria2", "TUIC", "Trojan", "gRPC", "AnyTLS", "AnyTLS+", "Naive"]) {
+    for (const protocol of ["XTLS", "Hysteria2", "TUIC", "Trojan", "gRPC", "AnyTLS", "AnyTLS+"]) {
       await selectProtocol(root, protocol);
       root.querySelector<HTMLButtonElement>(".protocol-confirm-button")?.click();
       await nextTick();
-      if (["Hysteria2", "TUIC", "Trojan", "AnyTLS", "Naive", "VLESS-WS"].includes(protocol)) {
+      if (["Hysteria2", "TUIC", "Trojan", "AnyTLS", "VLESS-WS"].includes(protocol)) {
         const certificateMode = [...root.querySelectorAll("label")]
           .find(item => item.textContent?.includes("证书方式"))?.querySelector<HTMLInputElement>("input");
         expect(certificateMode?.value).toBe("自动配置");
@@ -199,7 +199,7 @@ describe("NodeFormModal", () => {
   it("disables certificate protocols without a server domain", async () => {
     const root = mountForm(() => undefined, "127.0.0.1", false);
     const options = await protocolOptions(root);
-    for (const protocol of ["hysteria2", "tuic", "trojan_tls", "anytls", "naive", "vless_ws_tls", "vless_argo"]) {
+    for (const protocol of ["hysteria2", "tuic", "trojan_tls", "anytls", "vless_ws_tls", "vless_argo"]) {
       expect(options.find(option => option.dataset.value === protocol)?.disabled).toBe(true);
     }
     for (const protocol of ["vless_reality", "vless_grpc_reality", "anytls_reality"]) {
@@ -224,7 +224,7 @@ describe("NodeFormModal", () => {
       certificateServerName: "198.51.100.10"
     });
     const options = await protocolOptions(root);
-    for (const protocol of ["hysteria2", "tuic", "trojan_tls", "anytls", "naive"]) {
+    for (const protocol of ["hysteria2", "tuic", "trojan_tls", "anytls"]) {
       expect(options.find(option => option.dataset.value === protocol)?.disabled).toBe(false);
     }
     expect(options.find(option => option.dataset.value === "vless_ws_tls")?.disabled).toBe(true);
@@ -235,24 +235,10 @@ describe("NodeFormModal", () => {
     expect(inputFor(root, "证书域名").value).toBe("198.51.100.10");
   });
 
-  it("uses the direct IPv4 certificate for Naive even when HTTPS ingress is configured", async () => {
-    const root = mountForm(() => undefined, "198.51.100.10", false, {
-      httpsIngressEnabled: true,
-      httpsIngressDomain: "panel.example.com",
-      certificateReady: true,
-      certificateServerName: "panel.example.com"
-    });
-    await selectProtocol(root, "Naive");
-    root.querySelector<HTMLButtonElement>(".protocol-confirm-button")?.click();
-    await nextTick();
-
-    expect(inputFor(root, "证书域名").value).toBe("198.51.100.10");
-  });
-
   it("unlocks every protocol in mock mode", async () => {
     const root = mountForm(() => undefined);
     const options = await protocolOptions(root);
-    expect(options).toHaveLength(10);
+    expect(options).toHaveLength(9);
     expect(options.every(option => !option.disabled)).toBe(true);
   });
 

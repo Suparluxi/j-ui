@@ -12,7 +12,7 @@ J-UI is a lightweight, self-hosted sing-box management panel for a single Linux 
 
 ### Choose a protocol instead of writing configuration from scratch
 
-Create common Reality, Hysteria2, and TUIC nodes together, or configure Trojan, gRPC-Reality, AnyTLS, AnyTLS-Reality, Naive, VLESS-WS, and fixed-domain Argo individually. J-UI generates ports, UUIDs, passwords, keys, certificates, and recommended settings while keeping advanced options available.
+Create common Reality, Hysteria2, and TUIC nodes together, or configure Trojan, gRPC-Reality, AnyTLS, AnyTLS-Reality, VLESS-WS, and fixed-domain Argo individually. J-UI generates ports, UUIDs, passwords, keys, certificates, and recommended settings while keeping advanced options available.
 
 ![Node creation workflow](docs/images/readme/node-workflow.en.svg)
 

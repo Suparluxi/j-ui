@@ -1385,7 +1385,7 @@ func generatedCredential(protocol string) (map[string]any, error) {
 		}
 		password, err := secure.RandomToken(18)
 		return map[string]any{"uuid": uuid, "password": password}, err
-	case model.ProtocolSOCKS5, model.ProtocolNaive:
+	case model.ProtocolSOCKS5:
 		username, err := secure.RandomHex(6)
 		if err != nil {
 			return nil, err
@@ -1417,7 +1417,7 @@ func applyCustomCredential(protocol string, generated, custom map[string]any) (m
 	case model.ProtocolTUIC:
 		allowed["uuid"] = true
 		allowed["password"] = true
-	case model.ProtocolSOCKS5, model.ProtocolNaive:
+	case model.ProtocolSOCKS5:
 		allowed["username"] = true
 		allowed["password"] = true
 	default:
@@ -1583,7 +1583,7 @@ func (s *Service) prepareAutomaticCertificate(protocol string, settings map[stri
 func protocolRequiresCertificate(protocol string) bool {
 	switch protocol {
 	case model.ProtocolVLESSWSTLS, model.ProtocolTrojanTLS, model.ProtocolHysteria2,
-		model.ProtocolTUIC, model.ProtocolAnyTLS, model.ProtocolNaive:
+		model.ProtocolTUIC, model.ProtocolAnyTLS:
 		return true
 	default:
 		return false
@@ -2001,8 +2001,6 @@ func decorateNode(node *model.Node, publicHost string) {
 		node.Transport = "socks"
 	case model.ProtocolAnyTLS, model.ProtocolAnyTLSReality:
 		node.Transport = "anytls"
-	case model.ProtocolNaive:
-		node.Transport = "naive"
 	default:
 		node.Transport = "tcp"
 	}

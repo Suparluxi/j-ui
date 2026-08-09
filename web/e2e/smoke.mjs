@@ -442,7 +442,7 @@ try {
     options.map(option => option.dataset.value)
   ), [
     "vless_reality", "hysteria2", "tuic", "trojan_tls", "vless_grpc_reality",
-    "anytls", "anytls_reality", "naive", "vless_ws_tls",
+    "anytls", "anytls_reality", "vless_ws_tls",
     "vless_argo"
   ], "custom inbound protocols are not rendered in the requested dropdown order");
   await page.locator("#node-protocol-menu .dropdown-option[data-value='vless_reality']").click();

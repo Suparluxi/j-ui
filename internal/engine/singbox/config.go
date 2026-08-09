@@ -154,10 +154,6 @@ func inbound(node model.Node, clients []model.Client) (map[string]any, error) {
 	case model.ProtocolAnyTLSReality:
 		base["users"] = passwordUsers(active)
 		base["tls"] = realityTLS(node)
-	case model.ProtocolNaive:
-		base["network"] = "tcp"
-		base["users"] = naiveUsers(active)
-		base["tls"] = fileTLS(node)
 	case model.ProtocolSOCKS5:
 		base["users"] = socksUsers(active)
 	default:
@@ -244,17 +240,6 @@ func tuicUsers(clients []model.Client) []any {
 }
 
 func socksUsers(clients []model.Client) []any {
-	users := make([]any, 0, len(clients))
-	for _, client := range clients {
-		users = append(users, map[string]any{
-			"username": client.Credential["username"],
-			"password": client.Credential["password"],
-		})
-	}
-	return users
-}
-
-func naiveUsers(clients []model.Client) []any {
 	users := make([]any, 0, len(clients))
 	for _, client := range clients {
 		users = append(users, map[string]any{

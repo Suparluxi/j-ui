@@ -104,12 +104,6 @@ const protocols: ProtocolOption[] = [
     security: "REALITY", network: "TCP", defaultPort: 443, defaultListen: "0.0.0.0"
   },
   {
-    id: "naive", name: "Naive",
-    description: "基于浏览器网络栈特征的 HTTPS 代理。", transport: "HTTPS",
-    security: "TLS", network: "TCP", defaultPort: 443, defaultListen: "0.0.0.0",
-    requiresCertificateDomain: true
-  },
-  {
     id: "vless_ws_tls",
     name: "VLESS-WS",
     description: "WebSocket 传输，可配合 HTTPS 反向代理。",
@@ -152,7 +146,6 @@ const form = reactive({
   handshakeServer: String(props.node?.settings.handshake_server ?? defaultRealityTarget),
   handshakePort: Number(props.node?.settings.handshake_port ?? 443),
   credentialUuid: "",
-  credentialUsername: "",
   credentialPassword: "",
   outboundId: props.node?.outboundId ? String(props.node.outboundId) : ""
 });
@@ -179,7 +172,6 @@ const protocolDescription = computed(() => {
     vless_grpc_reality: "VLESS over gRPC with a Reality handshake.",
     anytls: "AnyTLS multiplexing with a standard TLS certificate.",
     anytls_reality: "AnyTLS inbound with Reality and no domain certificate.",
-    naive: "HTTPS proxy using browser-like network behavior.",
     vless_ws_tls: "WebSocket transport suitable for HTTPS reverse proxies.",
     vless_argo: "Local WebSocket inbound exposed through a cloudflared Tunnel domain."
   } as Record<string, string>)[protocol.id] ?? protocol.description;
@@ -193,9 +185,8 @@ const needsCertificate = computed(() =>
 const usesUuidCredential = computed(() =>
   ["vless_reality", "tuic", "vless_grpc_reality", "vless_ws_tls", "vless_argo"].includes(form.protocol)
 );
-const usesUsernameCredential = computed(() => form.protocol === "naive");
 const usesPasswordCredential = computed(() =>
-  ["hysteria2", "tuic", "trojan_tls", "anytls", "anytls_reality", "naive"].includes(form.protocol)
+  ["hysteria2", "tuic", "trojan_tls", "anytls", "anytls_reality"].includes(form.protocol)
 );
 const hasServerDomain = computed(() => props.mockMode || props.certificateReady ||
   (props.httpsIngressEnabled && isDomainName(props.httpsIngressDomain)) || isDomainName(props.publicHost));
@@ -213,8 +204,6 @@ const credentialDescription = computed(() => {
       return tr("自动生成 UUID", "UUID generated automatically");
     case "tuic":
       return tr("自动生成 UUID 与密码", "UUID and password generated automatically");
-    case "naive":
-      return tr("自动生成用户名与密码", "Username and password generated automatically");
     default:
       return tr("自动生成强密码", "Strong password generated automatically");
   }
@@ -235,24 +224,12 @@ function isDomainName(value: string): boolean {
     !configured.toLowerCase().endsWith(".jui.test");
 }
 
-function isIPv4Address(value: string): boolean {
-  const octets = value.split(".");
-  return octets.length === 4 && octets.every(octet => {
-    if (!/^\d{1,3}$/.test(octet)) return false;
-    const number = Number(octet);
-    return number >= 0 && number <= 255 && String(number) === String(Number(octet));
-  });
-}
-
 function certificateHost(): string {
   if (form.protocol === "vless_argo" && props.cloudflareTunnelEnabled &&
     (props.mockMode || isDomainName(props.cloudflareTunnelDomain)) && props.cloudflareTunnelDomain.trim()) {
     return props.cloudflareTunnelDomain.trim().toLowerCase();
   }
   const configured = props.publicHost.trim().replace(/^\[|\]$/g, "");
-  if (form.protocol === "naive" && configured) {
-    return configured;
-  }
   if (props.httpsIngressEnabled &&
     (props.mockMode || isDomainName(props.httpsIngressDomain)) && props.httpsIngressDomain.trim()) {
     return props.httpsIngressDomain.trim().toLowerCase();
@@ -334,7 +311,6 @@ function generatedUuid(): string {
 
 function prepareCredential() {
   form.credentialUuid = usesUuidCredential.value ? generatedUuid() : "";
-  form.credentialUsername = usesUsernameCredential.value ? `jui-${randomHex(4)}` : "";
   form.credentialPassword = usesPasswordCredential.value ? randomHex(16) : "";
 }
 
@@ -355,14 +331,8 @@ function confirmProtocol() {
   form.wsPath = protocol.id === "vless_argo" ? "/jui-argo" : "/jui";
   form.serviceName = "jui-grpc";
   form.certificateMode = props.certificateModeDefault;
-  const naiveIPv4Certificate = protocol.id === "naive" && form.certificateMode === "auto" &&
-    isIPv4Address(props.publicHost.trim());
-  form.certificatePath = naiveIPv4Certificate
-    ? `/etc/letsencrypt/live/${props.publicHost.trim()}/fullchain.pem`
-    : props.certificatePathDefault;
-  form.keyPath = naiveIPv4Certificate
-    ? `/etc/letsencrypt/live/${props.publicHost.trim()}/privkey.pem`
-    : props.certificateKeyPathDefault;
+  form.certificatePath = props.certificatePathDefault;
+  form.keyPath = props.certificateKeyPathDefault;
   form.serverName = usesReality.value ? defaultRealityTarget : certificateHost();
   form.publicHostOverride = ["vless_ws_tls", "vless_argo"].includes(protocol.id)
     ? form.serverName
@@ -440,7 +410,6 @@ function submit() {
     payload.protocol = form.protocol;
     payload.credential = {
       ...(usesUuidCredential.value ? { uuid: form.credentialUuid.trim() } : {}),
-      ...(usesUsernameCredential.value ? { username: form.credentialUsername.trim() } : {}),
       ...(usesPasswordCredential.value ? { password: form.credentialPassword } : {})
     };
   }
@@ -524,9 +493,6 @@ function submit() {
                   <label v-if="usesUuidCredential" :class="{ 'field-wide': !usesPasswordCredential }">UUID
                     <input v-model="form.credentialUuid" :disabled="!automaticEditing" :type="credentialVisible ? 'text' : 'password'" required spellcheck="false" autocomplete="off">
                     <small>{{ tr("已在本机安全生成，部署时加密保存", "Generated locally and stored encrypted during deployment") }}</small>
-                  </label>
-                  <label v-if="usesUsernameCredential">{{ tr("账号", "Username") }}
-                    <input v-model="form.credentialUsername" :disabled="!automaticEditing" required autocomplete="off">
                   </label>
                   <label v-if="usesPasswordCredential">{{ tr("密码", "Password") }}
                     <input v-model="form.credentialPassword" :disabled="!automaticEditing" :type="credentialVisible ? 'text' : 'password'" required autocomplete="new-password">

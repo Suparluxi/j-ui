@@ -134,7 +134,6 @@ const (
 	ProtocolTUIC             = "tuic"
 	ProtocolAnyTLS           = "anytls"
 	ProtocolAnyTLSReality    = "anytls_reality"
-	ProtocolNaive            = "naive"
 	ProtocolSOCKS5           = "socks5"
 )
 
@@ -142,7 +141,7 @@ func SupportedProtocol(protocol string) bool {
 	switch protocol {
 	case ProtocolVLESSReality, ProtocolVLESSGRPCReality,
 		ProtocolVLESSWSTLS, ProtocolVLESSArgo, ProtocolTrojanTLS, ProtocolHysteria2,
-		ProtocolTUIC, ProtocolAnyTLS, ProtocolAnyTLSReality, ProtocolNaive:
+		ProtocolTUIC, ProtocolAnyTLS, ProtocolAnyTLSReality:
 		return true
 	default:
 		return false

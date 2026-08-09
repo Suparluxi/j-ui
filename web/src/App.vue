@@ -1157,7 +1157,7 @@ function protocolLabel(protocol: string) {
     vless_grpc_reality: "gRPC+Reality", vless_ws_tls: "VLESS-WS",
     vless_argo: "Argo", trojan_tls: "Trojan TLS",
     hysteria2: "Hysteria2", tuic: "TUIC", anytls: "AnyTLS",
-    anytls_reality: "AnyTLS+Reality", naive: "Naive", socks5: tr("已弃用 SOCKS5", "Deprecated SOCKS5")
+    anytls_reality: "AnyTLS+Reality", socks5: tr("已弃用 SOCKS5", "Deprecated SOCKS5")
   } as Record<string, string>)[protocol] ?? protocol;
 }
 

@@ -14,7 +14,7 @@ func TestGenerateProtocolGoldens(t *testing.T) {
 		model.ProtocolVLESSReality, model.ProtocolVLESSH2Reality, model.ProtocolVLESSGRPCReality,
 		model.ProtocolVLESSWSTLS, model.ProtocolTrojanTLS, model.ProtocolHysteria2,
 		model.ProtocolTUIC, model.ProtocolAnyTLS, model.ProtocolAnyTLSReality,
-		model.ProtocolNaive, model.ProtocolSOCKS5,
+		model.ProtocolSOCKS5,
 		model.ProtocolVLESSArgo,
 	}
 	fixtureIndexes := map[string]int{
@@ -22,7 +22,7 @@ func TestGenerateProtocolGoldens(t *testing.T) {
 		model.ProtocolTrojanTLS: 2, model.ProtocolHysteria2: 3,
 		model.ProtocolTUIC: 4, model.ProtocolSOCKS5: 5, model.ProtocolVLESSArgo: 6,
 		model.ProtocolVLESSH2Reality: 7, model.ProtocolVLESSGRPCReality: 8,
-		model.ProtocolAnyTLS: 9, model.ProtocolAnyTLSReality: 10, model.ProtocolNaive: 11,
+		model.ProtocolAnyTLS: 9, model.ProtocolAnyTLSReality: 10,
 	}
 	for _, protocol := range protocols {
 		t.Run(protocol, func(t *testing.T) {
@@ -59,7 +59,7 @@ func goldenFixture(protocol string, index int) NodeWithClients {
 	case model.ProtocolTUIC:
 		credential["uuid"] = "00000000-0000-4000-8000-000000000000"
 		credential["password"] = "fixed-password"
-	case model.ProtocolSOCKS5, model.ProtocolNaive:
+	case model.ProtocolSOCKS5:
 		credential["username"] = "fixed-user"
 		credential["password"] = "fixed-password"
 	default:

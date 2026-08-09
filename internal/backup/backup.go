@@ -444,7 +444,7 @@ func validateLogicalState(databasePath, keyPath string) error {
 	}
 	foreignKeyRows.Close()
 	var version int
-	if err := db.QueryRow(`PRAGMA user_version`).Scan(&version); err != nil || version < 1 || version > 9 {
+	if err := db.QueryRow(`PRAGMA user_version`).Scan(&version); err != nil || version < 1 || version > 10 {
 		return fmt.Errorf("backup has unsupported schema version %d", version)
 	}
 	var adminID, adminCount int
@@ -712,7 +712,7 @@ func validNodeMaterial(protocol string, settings, secret map[string]any) bool {
 		path, _ := settings["ws_path"].(string)
 		return nonemptyString(settings, "server_name") && strings.HasPrefix(path, "/")
 	case model.ProtocolTrojanTLS, model.ProtocolHysteria2, model.ProtocolTUIC,
-		model.ProtocolAnyTLS, model.ProtocolNaive:
+		model.ProtocolAnyTLS:
 		return validTLSMaterial(settings)
 	case model.ProtocolSOCKS5:
 		return true
@@ -738,7 +738,7 @@ func validCredential(protocol string, credential map[string]any) bool {
 		return nonemptyString(credential, "password")
 	case model.ProtocolTUIC:
 		return validUUIDString(credential["uuid"]) && nonemptyString(credential, "password")
-	case model.ProtocolSOCKS5, model.ProtocolNaive:
+	case model.ProtocolSOCKS5:
 		return nonemptyString(credential, "username") && nonemptyString(credential, "password")
 	default:
 		return false

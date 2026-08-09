@@ -72,7 +72,6 @@ func TestURIExportsNewCustomProtocols(t *testing.T) {
 		{model.ProtocolVLESSGRPCReality, "vless", "type", "grpc"},
 		{model.ProtocolAnyTLS, "anytls", "sni", "example.com"},
 		{model.ProtocolAnyTLSReality, "anytls", "security", "reality"},
-		{model.ProtocolNaive, "naive+https", "", ""},
 	}
 	for _, test := range tests {
 		node := model.Node{Name: test.protocol, Protocol: test.protocol, Port: 443, Settings: map[string]any{
@@ -110,11 +109,6 @@ func TestURIProfilesFilterClientIncompatibleProtocols(t *testing.T) {
 			}},
 			client: client,
 		},
-		{
-			host:   "example.com",
-			node:   model.Node{Name: "Naive", Protocol: model.ProtocolNaive, Port: 8443},
-			client: client,
-		},
 	}
 	decode := func(profile string) string {
 		body, err := base64.StdEncoding.DecodeString(string(renderURIList(items, profile)))
@@ -123,13 +117,13 @@ func TestURIProfilesFilterClientIncompatibleProtocols(t *testing.T) {
 		}
 		return string(body)
 	}
-	if value := decode("v2rayn"); !strings.Contains(value, "#Reality") || !strings.Contains(value, "#H2") || !strings.Contains(value, "type=raw") || !strings.Contains(value, "headerType=http") || strings.Contains(value, "naive+https://") {
+	if value := decode("v2rayn"); !strings.Contains(value, "#Reality") || !strings.Contains(value, "#H2") || !strings.Contains(value, "type=raw") || !strings.Contains(value, "headerType=http") {
 		t.Fatalf("unexpected v2rayN profile: %s", value)
 	}
-	if value := decode("shadowrocket"); !strings.Contains(value, "vless://") || !strings.Contains(value, "naive+https://") {
+	if value := decode("shadowrocket"); !strings.Contains(value, "vless://") {
 		t.Fatalf("unexpected Shadowrocket profile: %s", value)
 	}
-	if value := decode("base64"); !strings.Contains(value, "vless://") || !strings.Contains(value, "naive+https://") {
+	if value := decode("base64"); !strings.Contains(value, "vless://") {
 		t.Fatalf("unexpected ordinary profile: %s", value)
 	}
 }
@@ -182,7 +176,7 @@ func TestClashWithMihomo(t *testing.T) {
 		model.ProtocolVLESSGRPCReality, model.ProtocolVLESSWSTLS,
 		model.ProtocolTrojanTLS, model.ProtocolHysteria2,
 		model.ProtocolTUIC, model.ProtocolAnyTLS, model.ProtocolAnyTLSReality,
-		model.ProtocolNaive, model.ProtocolSOCKS5, model.ProtocolVLESSArgo,
+		model.ProtocolSOCKS5, model.ProtocolVLESSArgo,
 	}
 	var items []item
 	for index, protocol := range protocols {
@@ -233,7 +227,7 @@ func TestSingBoxSubscriptionWithSingBox(t *testing.T) {
 		model.ProtocolVLESSGRPCReality, model.ProtocolVLESSWSTLS,
 		model.ProtocolTrojanTLS, model.ProtocolHysteria2,
 		model.ProtocolTUIC, model.ProtocolAnyTLS, model.ProtocolAnyTLSReality,
-		model.ProtocolNaive, model.ProtocolSOCKS5, model.ProtocolVLESSArgo,
+		model.ProtocolSOCKS5, model.ProtocolVLESSArgo,
 	}
 	items := make([]item, 0, len(protocols))
 	for index, protocol := range protocols {

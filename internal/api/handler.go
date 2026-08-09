@@ -1343,7 +1343,6 @@ func residentialProtocolLabel(protocol string) string {
 		"vless_grpc_reality": "gRPC-Reality", "vless_ws_tls": "VLESS-WS",
 		"vless_argo": "Argo", "trojan_tls": "Trojan", "hysteria2": "Hysteria2",
 		"tuic": "TUIC", "anytls": "AnyTLS", "anytls_reality": "AnyTLS-Reality",
-		"naive": "Naive",
 	}
 	if label := labels[protocol]; label != "" {
 		return label

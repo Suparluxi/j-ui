@@ -42,7 +42,7 @@ func TestGeneratedConfigWithSingBox(t *testing.T) {
 		model.ProtocolVLESSGRPCReality, model.ProtocolVLESSWSTLS,
 		model.ProtocolTrojanTLS, model.ProtocolHysteria2,
 		model.ProtocolTUIC, model.ProtocolAnyTLS, model.ProtocolAnyTLSReality,
-		model.ProtocolNaive, model.ProtocolSOCKS5, model.ProtocolVLESSArgo,
+		model.ProtocolSOCKS5, model.ProtocolVLESSArgo,
 	}
 	var items []NodeWithClients
 	for index, protocol := range protocols {

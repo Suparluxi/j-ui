@@ -195,9 +195,6 @@ func (s *Service) Preview(ctx context.Context, format string) (Preview, error) {
 func renderURIList(items []item, profile string) []byte {
 	links := make([]string, 0, len(items))
 	for _, item := range items {
-		if !supportsURIProfile(profile, item.node.Protocol) {
-			continue
-		}
 		link, err := URIForProfile(item.node, item.client, item.host, profile)
 		if err == nil {
 			links = append(links, link)
@@ -206,13 +203,6 @@ func renderURIList(items []item, profile string) []byte {
 		}
 	}
 	return []byte(base64.StdEncoding.EncodeToString([]byte(strings.Join(links, "\n"))))
-}
-
-func supportsURIProfile(profile, protocol string) bool {
-	if profile == "v2rayn" {
-		return protocol != model.ProtocolNaive
-	}
-	return true
 }
 
 // URIForProfile preserves the standard link for most clients and maps H2 to
@@ -327,9 +317,6 @@ func URI(node model.Node, client model.Client, host string) (string, error) {
 			query.Set("sid", setting(node, "short_id"))
 		}
 		return "anytls://" + url.PathEscape(credential(client, "password")) + "@" + endpoint + "?" + query.Encode() + "#" + name, nil
-	case model.ProtocolNaive:
-		userInfo := url.PathEscape(credential(client, "username")) + ":" + url.PathEscape(credential(client, "password"))
-		return "naive+https://" + userInfo + "@" + endpoint + "#" + name, nil
 	case model.ProtocolSOCKS5:
 		userInfo := url.PathEscape(credential(client, "username")) + ":" + url.PathEscape(credential(client, "password"))
 		return "socks://" + userInfo + "@" + endpoint + "#" + name, nil
@@ -386,7 +373,7 @@ func Clash(items []item) ([]byte, error) {
 }
 
 func supportsClash(protocol string) bool {
-	return protocol != model.ProtocolAnyTLSReality && protocol != model.ProtocolNaive
+	return protocol != model.ProtocolAnyTLSReality
 }
 
 func SingBox(items []item) ([]byte, error) {
@@ -492,10 +479,6 @@ func singBoxOutbound(node model.Node, client model.Client, host, tag string) (ma
 			}
 		}
 		base["tls"] = tlsConfig
-	case model.ProtocolNaive:
-		base["username"] = credential(client, "username")
-		base["password"] = credential(client, "password")
-		base["tls"] = tls()
 	case model.ProtocolSOCKS5:
 		base["version"] = "5"
 		base["username"] = credential(client, "username")
@@ -577,8 +560,6 @@ func clashProxy(node model.Node, client model.Client, host, name string) (map[st
 		base["sni"] = setting(node, "server_name")
 	case model.ProtocolAnyTLSReality:
 		return nil, errors.New("AnyTLS with Reality is not supported by Mihomo")
-	case model.ProtocolNaive:
-		return nil, errors.New("Naive is not supported by Mihomo subscriptions")
 	case model.ProtocolSOCKS5:
 		base["type"] = "socks5"
 		base["username"] = credential(client, "username")

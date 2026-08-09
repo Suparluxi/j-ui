@@ -277,6 +277,13 @@ func (s *Store) migrate(ctx context.Context) error {
 			 WHERE EXISTS (SELECT 1 FROM nodes WHERE protocol = 'vless_h2_reality')`,
 			`DELETE FROM nodes WHERE protocol = 'vless_h2_reality'`,
 		},
+		{
+			`INSERT INTO system_events(level, code, message, created_at)
+			 SELECT 'info', 'naive_protocol_removed',
+			        'Naive 协议已移除，现有节点已自动删除', CAST(strftime('%s', 'now') AS INTEGER)
+			 WHERE EXISTS (SELECT 1 FROM nodes WHERE protocol = 'naive')`,
+			`DELETE FROM nodes WHERE protocol = 'naive'`,
+		},
 	}
 
 	var current int

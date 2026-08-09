@@ -124,8 +124,8 @@ func TestExplicitMigrationsAndEvents(t *testing.T) {
 	if err := store.db.QueryRow(`PRAGMA user_version`).Scan(&version); err != nil {
 		t.Fatal(err)
 	}
-	if version != 9 {
-		t.Fatalf("schema version = %d, want 9", version)
+	if version != 10 {
+		t.Fatalf("schema version = %d, want 10", version)
 	}
 	if err := store.RecordEvent(context.Background(), "info", "test_event", "测试事件"); err != nil {
 		t.Fatal(err)
@@ -136,6 +136,49 @@ func TestExplicitMigrationsAndEvents(t *testing.T) {
 	}
 	if len(events) != 1 || events[0].Code != "test_event" {
 		t.Fatalf("events = %#v", events)
+	}
+}
+
+func TestMigrationTenRemovesNaiveNodes(t *testing.T) {
+	sealer, err := secure.NewSealer(make([]byte, 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "j-ui.db")
+	store, err := Open(path, sealer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().Unix()
+	if _, err := store.db.Exec(`INSERT INTO nodes(
+		id, name, protocol, listen, port, enabled, public_host_override,
+		settings_json, secret_enc, status, created_at, updated_at, outbound_id
+	) VALUES(1, 'old Naive', 'naive', '0.0.0.0', 8443, 1, '', '{}', 'discarded', 'running', ?, ?, NULL)`, now, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.db.Exec(`PRAGMA user_version = 9`); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	store, err = Open(path, sealer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	var count int
+	if err := store.db.QueryRow(`SELECT COUNT(*) FROM nodes WHERE protocol = 'naive'`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Fatalf("deprecated Naive nodes remaining = %d", count)
+	}
+	if err := store.db.QueryRow(`SELECT COUNT(*) FROM system_events WHERE code = 'naive_protocol_removed'`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("Naive removal events = %d, want 1", count)
 	}
 }
 
@@ -226,8 +269,8 @@ func TestMigrationFromRealVersionSixShape(t *testing.T) {
 	if err := store.db.QueryRow(`PRAGMA user_version`).Scan(&version); err != nil {
 		t.Fatal(err)
 	}
-	if version != 9 {
-		t.Fatalf("migrated schema version = %d, want 9", version)
+	if version != 10 {
+		t.Fatalf("migrated schema version = %d, want 10", version)
 	}
 	if outbounds, err := store.ListOutbounds(context.Background()); err != nil || len(outbounds) != 0 {
 		t.Fatalf("migrated outbounds = %#v, err=%v", outbounds, err)
