@@ -650,7 +650,7 @@ temporary_directory="$(mktemp -d /tmp/j-ui-install.XXXXXX)"
 version="${JUI_VERSION:-}"
 if [[ -z "$version" ]]; then
   version="$(github_curl -fsSL "https://api.github.com/repos/${repository}/releases/latest" |
-    sed -n 's/.*"tag_name":[[:space:]]*"v\\([^"]*\\)".*/\\1/p' | head -n 1)"
+    jq -r '.tag_name // empty' | sed -n 's/^v//p' | head -n 1)"
 fi
 if [[ -z "$version" ]]; then
   i18n latest_version_failed >&2

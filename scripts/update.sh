@@ -180,7 +180,7 @@ fi
 version="${JUI_VERSION:-}"
 if [[ -z "$version" ]]; then
   version="$(github_curl -fsSL "https://api.github.com/repos/${repository}/releases/latest" |
-    sed -n 's/.*"tag_name":[[:space:]]*"v\\([^"]*\\)".*/\\1/p' | head -n 1)"
+    jq -r '.tag_name // empty' | sed -n 's/^v//p' | head -n 1)"
 fi
 target_version="$version"
 if [[ -z "$version" ]]; then
