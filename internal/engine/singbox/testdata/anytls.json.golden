@@ -1,0 +1,26 @@
+{
+  "inbounds": [
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 20009,
+      "tag": "node-10",
+      "tls": {
+        "certificate_path": "/etc/j-ui/example.crt",
+        "enabled": true,
+        "key_path": "/etc/j-ui/example.key",
+        "server_name": "example.com"
+      },
+      "type": "anytls",
+      "users": [
+        {
+          "name": "default",
+          "password": "fixed-password"
+        }
+      ]
+    }
+  ],
+  "log": {
+    "level": "info",
+    "timestamp": true
+  }
+}

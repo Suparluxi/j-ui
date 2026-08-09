@@ -1,0 +1,20 @@
+{
+  "inbounds": [
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 20005,
+      "tag": "node-6",
+      "type": "socks",
+      "users": [
+        {
+          "password": "fixed-password",
+          "username": "fixed-user"
+        }
+      ]
+    }
+  ],
+  "log": {
+    "level": "info",
+    "timestamp": true
+  }
+}

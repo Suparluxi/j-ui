@@ -1,0 +1,35 @@
+{
+  "inbounds": [
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 20010,
+      "tag": "node-11",
+      "tls": {
+        "enabled": true,
+        "reality": {
+          "enabled": true,
+          "handshake": {
+            "server": "example.com",
+            "server_port": 443
+          },
+          "private_key": "fixed-private-key",
+          "short_id": [
+            "0123456789abcdef"
+          ]
+        },
+        "server_name": "example.com"
+      },
+      "type": "anytls",
+      "users": [
+        {
+          "name": "default",
+          "password": "fixed-password"
+        }
+      ]
+    }
+  ],
+  "log": {
+    "level": "info",
+    "timestamp": true
+  }
+}

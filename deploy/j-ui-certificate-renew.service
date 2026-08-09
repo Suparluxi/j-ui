@@ -1,0 +1,11 @@
+[Unit]
+Description=Renew J-UI SSL certificates
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/j-ui/ssl.sh --renew
+PrivateTmp=true
+ProtectHome=true
+

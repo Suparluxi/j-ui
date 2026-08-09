@@ -1,0 +1,32 @@
+{
+  "inbounds": [
+    {
+      "congestion_control": "cubic",
+      "listen": "127.0.0.1",
+      "listen_port": 20004,
+      "tag": "node-5",
+      "tls": {
+        "alpn": [
+          "h3"
+        ],
+        "certificate_path": "/etc/j-ui/example.crt",
+        "enabled": true,
+        "key_path": "/etc/j-ui/example.key",
+        "server_name": "example.com"
+      },
+      "type": "tuic",
+      "users": [
+        {
+          "name": "default",
+          "password": "fixed-password",
+          "uuid": "00000000-0000-4000-8000-000000000000"
+        }
+      ],
+      "zero_rtt_handshake": false
+    }
+  ],
+  "log": {
+    "level": "info",
+    "timestamp": true
+  }
+}

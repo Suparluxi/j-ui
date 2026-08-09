@@ -1,0 +1,27 @@
+{
+  "inbounds": [
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 20011,
+      "network": "tcp",
+      "tag": "node-12",
+      "tls": {
+        "certificate_path": "/etc/j-ui/example.crt",
+        "enabled": true,
+        "key_path": "/etc/j-ui/example.key",
+        "server_name": "example.com"
+      },
+      "type": "naive",
+      "users": [
+        {
+          "password": "fixed-password",
+          "username": "fixed-user"
+        }
+      ]
+    }
+  ],
+  "log": {
+    "level": "info",
+    "timestamp": true
+  }
+}

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="390" viewBox="0 0 1200 390" role="img" aria-labelledby="title desc">
+  <title id="title">J-UI 节点创建流程</title><desc id="desc">选择协议后由 J-UI 自动生成安全配置、验证并导出订阅。</desc>
+  <defs><marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#6366f1"/></marker></defs>
+  <rect width="1200" height="390" rx="30" fill="#f8fafc"/>
+  <text x="60" y="62" fill="#1e293b" font-family="Arial, Microsoft YaHei, sans-serif" font-size="28" font-weight="700">从“理解配置”变成“选择协议”</text>
+  <g font-family="Arial, Microsoft YaHei, sans-serif" text-anchor="middle">
+    <g transform="translate(60 105)"><rect width="240" height="185" rx="23" fill="#fff" stroke="#c7d2fe" stroke-width="3"/><text x="120" y="56" font-size="30">①</text><text x="120" y="96" fill="#334155" font-size="20" font-weight="700">选择协议</text><text x="120" y="132" fill="#64748b" font-size="15">常用节点一键创建</text><text x="120" y="158" fill="#64748b" font-size="15">或进入自定义配置</text></g>
+    <path d="M315 198H365" stroke="#6366f1" stroke-width="5" marker-end="url(#a)"/>
+    <g transform="translate(385 105)"><rect width="240" height="185" rx="23" fill="#fff" stroke="#c7d2fe" stroke-width="3"/><text x="120" y="56" font-size="30">②</text><text x="120" y="96" fill="#334155" font-size="20" font-weight="700">自动配置</text><text x="120" y="132" fill="#64748b" font-size="15">端口 · UUID · 密钥</text><text x="120" y="158" fill="#64748b" font-size="15">证书 · Reality 参数</text></g>
+    <path d="M640 198H690" stroke="#6366f1" stroke-width="5" marker-end="url(#a)"/>
+    <g transform="translate(710 105)"><rect width="240" height="185" rx="23" fill="#fff" stroke="#c7d2fe" stroke-width="3"/><text x="120" y="56" font-size="30">③</text><text x="120" y="96" fill="#334155" font-size="20" font-weight="700">验证并部署</text><text x="120" y="132" fill="#64748b" font-size="15">sing-box check</text><text x="120" y="158" fill="#64748b" font-size="15">失败自动回滚</text></g>
+    <path d="M965 198H1015" stroke="#6366f1" stroke-width="5" marker-end="url(#a)"/>
+    <g transform="translate(1035 105)"><rect width="105" height="185" rx="23" fill="#4f46e5"/><text x="52" y="75" fill="#fff" font-size="30">④</text><text x="52" y="115" fill="#fff" font-size="17" font-weight="700">订阅</text><text x="52" y="145" fill="#c7d2fe" font-size="14">复制</text></g>
+  </g>
+  <text x="600" y="345" fill="#64748b" font-family="Arial, Microsoft YaHei, sans-serif" font-size="17" text-anchor="middle">高级配置仍然保留，但默认值已经可直接使用。</text>
+</svg>

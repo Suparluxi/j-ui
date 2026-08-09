@@ -1,0 +1,77 @@
+package node_test
+
+import (
+	"context"
+	"path/filepath"
+	"sync/atomic"
+	"testing"
+
+	"github.com/Suparluxi/j-ui/internal/database"
+	"github.com/Suparluxi/j-ui/internal/engine"
+	"github.com/Suparluxi/j-ui/internal/firewall"
+	"github.com/Suparluxi/j-ui/internal/model"
+	nodeservice "github.com/Suparluxi/j-ui/internal/node"
+	"github.com/Suparluxi/j-ui/internal/secure"
+)
+
+type nodeBulkEngine struct {
+	bulkCalls   atomic.Int32
+	legacyCalls atomic.Int32
+}
+
+func (*nodeBulkEngine) Apply(context.Context, []byte, []engine.Listener) error { return nil }
+func (*nodeBulkEngine) Healthy(context.Context) bool                           { return true }
+func (*nodeBulkEngine) Version(context.Context) string                         { return "test" }
+func (e *nodeBulkEngine) ListenersHealthy(context.Context, []engine.Listener) error {
+	e.legacyCalls.Add(1)
+	return nil
+}
+func (e *nodeBulkEngine) ListenerStatuses(_ context.Context, listeners []engine.Listener) ([]bool, error) {
+	e.bulkCalls.Add(1)
+	statuses := make([]bool, len(listeners))
+	for index := range statuses {
+		statuses[index] = true
+	}
+	return statuses, nil
+}
+
+func TestListBatchesHundredNodeHealthChecks(t *testing.T) {
+	sealer, err := secure.NewSealer(make([]byte, 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := database.Open(filepath.Join(t.TempDir(), "j-ui.db"), sealer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	tokenEncrypted, err := sealer.Seal([]byte("test-token"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Bootstrap(context.Background(), database.Bootstrap{
+		AdminPasswordHash: "test", AdminPath: "manage-test",
+		TokenHash: secure.HashToken("test-token"), TokenEncrypted: tokenEncrypted,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	for index := 0; index < 100; index++ {
+		_, err := store.CreateNode(context.Background(), model.Node{
+			Name: "node", Protocol: model.ProtocolVLESSReality, Listen: "127.0.0.1",
+			Port: 30000 + index, Enabled: true, Settings: map[string]any{}, Secret: map[string]any{},
+		}, model.Client{Name: "default", Credential: map[string]any{}})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	proxy := &nodeBulkEngine{}
+	service := nodeservice.NewService(store, proxy, firewall.Mock{})
+	nodes, err := service.List(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(nodes) != 100 || proxy.bulkCalls.Load() != 1 || proxy.legacyCalls.Load() != 0 {
+		t.Fatalf("nodes=%d health calls bulk=%d legacy=%d",
+			len(nodes), proxy.bulkCalls.Load(), proxy.legacyCalls.Load())
+	}
+}

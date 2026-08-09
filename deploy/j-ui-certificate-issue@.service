@@ -1,0 +1,12 @@
+[Unit]
+Description=Issue J-UI SSL certificate for %I
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/j-ui/ssl.sh %I
+TimeoutStartSec=3min
+PrivateTmp=true
+ProtectHome=true
+UMask=0077

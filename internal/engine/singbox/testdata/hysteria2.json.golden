@@ -1,0 +1,26 @@
+{
+  "inbounds": [
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 20003,
+      "tag": "node-4",
+      "tls": {
+        "certificate_path": "/etc/j-ui/example.crt",
+        "enabled": true,
+        "key_path": "/etc/j-ui/example.key",
+        "server_name": "example.com"
+      },
+      "type": "hysteria2",
+      "users": [
+        {
+          "name": "default",
+          "password": "fixed-password"
+        }
+      ]
+    }
+  ],
+  "log": {
+    "level": "info",
+    "timestamp": true
+  }
+}

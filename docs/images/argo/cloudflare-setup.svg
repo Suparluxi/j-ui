@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="650" viewBox="0 0 1200 650" role="img" aria-labelledby="title desc">
+  <title id="title">Cloudflare API Token 配置示意图</title>
+  <desc id="desc">创建一个只允许管理指定账户 Tunnel 和指定域名 DNS 的 API Token。</desc>
+  <rect width="1200" height="650" rx="32" fill="#fff7ed"/>
+  <text x="60" y="66" fill="#1e293b" font-family="Arial, Microsoft YaHei, sans-serif" font-size="30" font-weight="700">Cloudflare：创建一个受限 API Token</text>
+  <text x="60" y="99" fill="#64748b" font-family="Arial, Microsoft YaHei, sans-serif" font-size="17">My Profile → API Tokens → Create Custom Token</text>
+  <g font-family="Arial, Microsoft YaHei, sans-serif">
+    <g transform="translate(60 132)">
+      <rect width="660" height="450" rx="26" fill="#ffffff" stroke="#fed7aa" stroke-width="3"/>
+      <text x="32" y="48" fill="#1e293b" font-size="22" font-weight="700">Permissions</text>
+      <g transform="translate(32 76)">
+        <rect width="596" height="72" rx="16" fill="#fff7ed"/>
+        <circle cx="34" cy="36" r="20" fill="#f97316"/><text x="34" y="43" fill="#fff" font-size="20" font-weight="700" text-anchor="middle">1</text>
+        <text x="70" y="30" fill="#334155" font-size="17">Account · Cloudflare Tunnel</text>
+        <text x="70" y="54" fill="#9a3412" font-size="17" font-weight="700">Edit</text>
+      </g>
+      <g transform="translate(32 164)">
+        <rect width="596" height="72" rx="16" fill="#fff7ed"/>
+        <circle cx="34" cy="36" r="20" fill="#f97316"/><text x="34" y="43" fill="#fff" font-size="20" font-weight="700" text-anchor="middle">2</text>
+        <text x="70" y="30" fill="#334155" font-size="17">Zone · DNS</text>
+        <text x="70" y="54" fill="#9a3412" font-size="17" font-weight="700">Edit</text>
+      </g>
+      <g transform="translate(32 252)">
+        <rect width="596" height="72" rx="16" fill="#fff7ed"/>
+        <circle cx="34" cy="36" r="20" fill="#f97316"/><text x="34" y="43" fill="#fff" font-size="20" font-weight="700" text-anchor="middle">3</text>
+        <text x="70" y="30" fill="#334155" font-size="17">Zone · Zone</text>
+        <text x="70" y="54" fill="#9a3412" font-size="17" font-weight="700">Read</text>
+      </g>
+      <rect x="32" y="348" width="596" height="66" rx="16" fill="#fef2f2"/>
+      <text x="330" y="375" fill="#b91c1c" font-size="16" font-weight="700" text-anchor="middle">不要使用 Global API Key</text>
+      <text x="330" y="399" fill="#7f1d1d" font-size="15" text-anchor="middle">Token 只限定到这台 VPS 使用的账户和域名</text>
+    </g>
+    <g transform="translate(760 132)">
+      <rect width="380" height="450" rx="26" fill="#ffffff" stroke="#fed7aa" stroke-width="3"/>
+      <text x="32" y="48" fill="#1e293b" font-size="22" font-weight="700">Resources</text>
+      <text x="32" y="92" fill="#64748b" font-size="15">Account Resources</text>
+      <rect x="32" y="108" width="316" height="58" rx="14" fill="#f8fafc" stroke="#cbd5e1"/>
+      <text x="52" y="143" fill="#334155" font-size="16">Include · 指定账户</text>
+      <text x="32" y="208" fill="#64748b" font-size="15">Zone Resources</text>
+      <rect x="32" y="224" width="316" height="58" rx="14" fill="#f8fafc" stroke="#cbd5e1"/>
+      <text x="52" y="259" fill="#334155" font-size="16">Include · example.com</text>
+      <rect x="32" y="316" width="316" height="74" rx="16" fill="#dcfce7"/>
+      <text x="190" y="346" fill="#166534" font-size="17" font-weight="700" text-anchor="middle">Continue to summary</text>
+      <text x="190" y="372" fill="#166534" font-size="15" text-anchor="middle">Create Token → Copy</text>
+      <text x="190" y="428" fill="#64748b" font-size="14" text-anchor="middle">Token 只显示一次，请临时保存</text>
+    </g>
+  </g>
+</svg>

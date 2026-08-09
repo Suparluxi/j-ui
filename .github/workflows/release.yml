@@ -1,0 +1,155 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+        working-directory: web
+      - run: npm run build
+        working-directory: web
+      - run: npm test
+        working-directory: web
+      - run: npx playwright install --with-deps chromium
+        working-directory: web
+      - run: npm run test:e2e
+        working-directory: web
+      - run: go test ./...
+      - run: go vet ./...
+      - run: bash -n scripts/*.sh
+      - name: Validate generated configs with sing-box 1.13.16
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          archive="sing-box-1.13.16-linux-amd64.tar.gz"
+          curl -fsSL \
+            "https://github.com/SagerNet/sing-box/releases/download/v1.13.16/${archive}" \
+            -o "/tmp/${archive}"
+          echo "e37c312859dfa84cba148f41072ff6369f08361ae91d622dc1fd3aab49611a8d  /tmp/${archive}" |
+            sha256sum --check --status
+          tar -xzf "/tmp/${archive}" -C /tmp
+          SINGBOX_TEST_BINARY="/tmp/sing-box-1.13.16-linux-amd64/sing-box" \
+            go test ./internal/engine/singbox
+      - name: Validate subscriptions with Mihomo 1.19.29
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          archive="/tmp/mihomo-linux-amd64-v1.19.29.gz"
+          curl -fsSL \
+            "https://github.com/MetaCubeX/mihomo/releases/download/v1.19.29/mihomo-linux-amd64-v1.19.29.gz" \
+            -o "$archive"
+          echo "60de76a35a6cbf7b4fa4a20f5c257c24345d1d635ab1aa3877022a1997ef413c  ${archive}" |
+            sha256sum --check --status
+          gzip -dc "$archive" > /tmp/mihomo
+          chmod 0755 /tmp/mihomo
+          MIHOMO_TEST_BINARY=/tmp/mihomo go test ./internal/subscription
+      - name: Package binaries
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          mkdir -p release
+          curl -fsSL \
+            "https://raw.githubusercontent.com/SagerNet/sing-box/v1.13.16/LICENSE" \
+            -o /tmp/LICENSE.sing-box
+          for architecture in amd64 arm64; do
+            case "$architecture" in
+              amd64) singbox_sha256="e37c312859dfa84cba148f41072ff6369f08361ae91d622dc1fd3aab49611a8d" ;;
+              arm64) singbox_sha256="d587fb00bdc3c044227f35d15d154f271bc75108475091eda2542e4b82bb2949" ;;
+            esac
+            singbox_archive="sing-box-1.13.16-linux-${architecture}.tar.gz"
+            if [[ ! -s "/tmp/${singbox_archive}" ]]; then
+              curl -fsSL \
+                "https://github.com/SagerNet/sing-box/releases/download/v1.13.16/${singbox_archive}" \
+                -o "/tmp/${singbox_archive}"
+            fi
+            echo "${singbox_sha256}  /tmp/${singbox_archive}" | sha256sum --check --status
+            if [[ ! -x "/tmp/sing-box-1.13.16-linux-${architecture}/sing-box" ]]; then
+              tar -xzf "/tmp/${singbox_archive}" -C /tmp
+            fi
+            CGO_ENABLED=0 GOOS=linux GOARCH="$architecture" go build \
+              -trimpath \
+              -ldflags="-s -w -X github.com/Suparluxi/j-ui/internal/api.Version=${version}" \
+              -o j-ui ./cmd/j-ui
+            package="j-ui_${version}_linux_${architecture}"
+            mkdir -p "$package/deploy" "$package/scripts"
+            cp j-ui "$package/"
+            cp "/tmp/sing-box-1.13.16-linux-${architecture}/sing-box" "$package/sing-box"
+            cp \
+              deploy/empty-sing-box.json \
+              deploy/j-ui-certificate-issue@.service \
+              deploy/j-ui-certificate-renew.service \
+              deploy/j-ui-certificate-renew.timer \
+              deploy/j-ui-sing-box.service \
+              deploy/j-ui-update.service \
+              deploy/j-ui.env \
+              deploy/j-ui.service \
+              "$package/deploy/"
+            cp \
+              scripts/argo.sh \
+              scripts/install.sh \
+              scripts/manage.sh \
+              scripts/ssl.sh \
+              scripts/uninstall.sh \
+              scripts/update.sh \
+              "$package/scripts/"
+            cp LICENSE NOTICE LEGAL_NOTICE.md THIRD_PARTY_NOTICES.md README.md README.en.md "$package/"
+            cp /tmp/LICENSE.sing-box "$package/LICENSE.sing-box"
+            tar -czf "release/${package}.tar.gz" -C "$package" .
+            smoke_directory="$(mktemp -d)"
+            tar -xzf "release/${package}.tar.gz" -C "$smoke_directory"
+            test -x "$smoke_directory/j-ui"
+            test -x "$smoke_directory/sing-box"
+            test -r "$smoke_directory/deploy/j-ui.service"
+            test -r "$smoke_directory/deploy/j-ui-sing-box.service"
+            test -x "$smoke_directory/scripts/install.sh"
+            test -x "$smoke_directory/scripts/manage.sh"
+            test -x "$smoke_directory/scripts/argo.sh"
+            test ! -e "$smoke_directory/scripts/dev-local.sh"
+            test ! -e "$smoke_directory/scripts/browser-smoke.sh"
+            test -z "$(find "$smoke_directory/scripts" -maxdepth 1 -name '*_test.go' -print -quit)"
+            test -r "$smoke_directory/LICENSE"
+            test -r "$smoke_directory/NOTICE"
+            test -r "$smoke_directory/LEGAL_NOTICE.md"
+            test -r "$smoke_directory/THIRD_PARTY_NOTICES.md"
+            test -r "$smoke_directory/LICENSE.sing-box"
+            rm -rf "$smoke_directory"
+            rm -rf "$package"
+          done
+          curl -fsSL \
+            "https://github.com/SagerNet/sing-box/archive/refs/tags/v1.13.16.tar.gz" \
+            -o release/sing-box-1.13.16-source.tar.gz
+          cp scripts/install.sh release/j-ui-install.sh
+          chmod 0755 release/j-ui-install.sh
+          (cd release && sha256sum j-ui-install.sh *.tar.gz > checksums.txt)
+      - name: Smoke-test arm64 release package
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update
+          sudo apt-get install -y qemu-user-static libc6-arm64-cross
+          version="${GITHUB_REF_NAME#v}"
+          smoke_directory="$(mktemp -d)"
+          tar -xzf "release/j-ui_${version}_linux_arm64.tar.gz" -C "$smoke_directory"
+          qemu-aarch64-static "$smoke_directory/j-ui" info
+          qemu-aarch64-static -L /usr/aarch64-linux-gnu "$smoke_directory/sing-box" version
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          generate_release_notes: true

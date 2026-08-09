@@ -1,0 +1,39 @@
+{
+  "inbounds": [
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 20008,
+      "tag": "node-9",
+      "tls": {
+        "enabled": true,
+        "reality": {
+          "enabled": true,
+          "handshake": {
+            "server": "example.com",
+            "server_port": 443
+          },
+          "private_key": "fixed-private-key",
+          "short_id": [
+            "0123456789abcdef"
+          ]
+        },
+        "server_name": "example.com"
+      },
+      "transport": {
+        "service_name": "jui-grpc",
+        "type": "grpc"
+      },
+      "type": "vless",
+      "users": [
+        {
+          "name": "default",
+          "uuid": "00000000-0000-4000-8000-000000000000"
+        }
+      ]
+    }
+  ],
+  "log": {
+    "level": "info",
+    "timestamp": true
+  }
+}

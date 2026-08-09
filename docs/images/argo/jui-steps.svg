@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" role="img" aria-labelledby="title desc">
+  <title id="title">J-UI 自动配置固定域名 Argo</title>
+  <desc id="desc">用户输入 API Token 与子域名，J-UI 自动创建固定 Tunnel、DNS、回源和服务，验证后创建节点。</desc>
+  <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#6366f1"/></marker></defs>
+  <rect width="1200" height="560" rx="32" fill="#eef2ff"/>
+  <text x="60" y="66" fill="#1e293b" font-family="Arial, Microsoft YaHei, sans-serif" font-size="30" font-weight="700">J-UI：两项输入，其余自动完成</text>
+  <g font-family="Arial, Microsoft YaHei, sans-serif" text-anchor="middle">
+    <g transform="translate(60 118)">
+      <rect width="300" height="330" rx="26" fill="#fff" stroke="#c7d2fe" stroke-width="3"/>
+      <circle cx="150" cy="54" r="32" fill="#4f46e5"/><text x="150" y="65" fill="#fff" font-size="29" font-weight="700">1</text>
+      <text x="150" y="117" fill="#1e293b" font-size="22" font-weight="700">运行配置向导</text>
+      <rect x="34" y="144" width="232" height="46" rx="12" fill="#1e293b"/><text x="150" y="174" fill="#fff" font-family="monospace" font-size="18">j-ui argo</text>
+      <text x="150" y="226" fill="#475569" font-size="16">固定子域名</text>
+      <text x="150" y="252" fill="#3730a3" font-size="18" font-weight="700">argo.example.com</text>
+      <text x="150" y="290" fill="#475569" font-size="16">粘贴受限 API Token</text>
+    </g>
+    <path d="M374 283H426" stroke="#6366f1" stroke-width="5" marker-end="url(#arrow)"/>
+    <g transform="translate(450 118)">
+      <rect width="300" height="330" rx="26" fill="#fff" stroke="#c7d2fe" stroke-width="3"/>
+      <circle cx="150" cy="54" r="32" fill="#4f46e5"/><text x="150" y="65" fill="#fff" font-size="29" font-weight="700">2</text>
+      <text x="150" y="117" fill="#1e293b" font-size="22" font-weight="700">J-UI 自动部署</text>
+      <g fill="#475569" font-size="16">
+        <text x="150" y="163">创建固定 Tunnel</text>
+        <text x="150" y="200">配置本机回源</text>
+        <text x="150" y="237">创建代理 CNAME</text>
+        <text x="150" y="274">启动 cloudflared</text>
+      </g>
+      <rect x="52" y="296" width="196" height="24" rx="12" fill="#dcfce7"/><text x="150" y="313" fill="#166534" font-size="14" font-weight="700">公网端到端验证</text>
+    </g>
+    <path d="M764 283H816" stroke="#6366f1" stroke-width="5" marker-end="url(#arrow)"/>
+    <g transform="translate(840 118)">
+      <rect width="300" height="330" rx="26" fill="#fff" stroke="#c7d2fe" stroke-width="3"/>
+      <circle cx="150" cy="54" r="32" fill="#4f46e5"/><text x="150" y="65" fill="#fff" font-size="29" font-weight="700">3</text>
+      <text x="150" y="117" fill="#1e293b" font-size="22" font-weight="700">网页创建节点</text>
+      <text x="150" y="170" fill="#475569" font-size="17">自定义节点 → Argo</text>
+      <text x="150" y="207" fill="#6366f1" font-size="24" font-weight="700">↓</text>
+      <text x="150" y="246" fill="#475569" font-size="17">参数自动填写</text>
+      <rect x="68" y="276" width="164" height="42" rx="16" fill="#4f46e5"/><text x="150" y="303" fill="#fff" font-size="17" font-weight="700">保存节点</text>
+    </g>
+  </g>
+  <text x="600" y="510" text-anchor="middle" fill="#475569" font-family="Arial, Microsoft YaHei, sans-serif" font-size="18">API Token 配置后不保存；服务只保留 Tunnel 专用凭据，固定域名不会因重启而变化。</text>
+</svg>

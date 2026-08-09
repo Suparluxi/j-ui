@@ -1,0 +1,12 @@
+[Unit]
+Description=Schedule J-UI SSL certificate renewal
+
+[Timer]
+OnBootSec=15min
+OnUnitActiveSec=12h
+RandomizedDelaySec=30min
+Persistent=true
+Unit=j-ui-certificate-renew.service
+
+[Install]
+WantedBy=timers.target

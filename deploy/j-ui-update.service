@@ -1,0 +1,21 @@
+[Unit]
+Description=Update J-UI from verified GitHub release
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+EnvironmentFile=-/etc/j-ui/github.env
+ExecStart=/usr/local/lib/j-ui/update.sh
+PrivateTmp=true
+ProtectHome=true
+NoNewPrivileges=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+UMask=0077

@@ -1,0 +1,12 @@
+/j-ui
+/.local/
+/web/node_modules/
+/web/dist/*
+!/web/dist/.gitkeep
+*.db
+*.db-shm
+*.db-wal
+*.log
+J-UI-backup-*.tar.gz
+j-ui-backup-*.tar.gz
+.env

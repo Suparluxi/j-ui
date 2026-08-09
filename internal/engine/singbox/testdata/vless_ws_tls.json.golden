@@ -1,0 +1,30 @@
+{
+  "inbounds": [
+    {
+      "listen": "127.0.0.1",
+      "listen_port": 20001,
+      "tag": "node-2",
+      "tls": {
+        "certificate_path": "/etc/j-ui/example.crt",
+        "enabled": true,
+        "key_path": "/etc/j-ui/example.key",
+        "server_name": "example.com"
+      },
+      "transport": {
+        "path": "/ws",
+        "type": "ws"
+      },
+      "type": "vless",
+      "users": [
+        {
+          "name": "default",
+          "uuid": "00000000-0000-4000-8000-000000000000"
+        }
+      ]
+    }
+  ],
+  "log": {
+    "level": "info",
+    "timestamp": true
+  }
+}
