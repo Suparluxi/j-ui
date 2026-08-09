@@ -311,7 +311,7 @@ if ! systemctl restart j-ui-sing-box.service j-ui.service ||
 fi
 health_ready=0
 for _ in {1..60}; do
-  if curl -kfsS --max-time 2 "$health_url" >/dev/null 2>&1; then
+  if curl --http1.1 -kfsS --max-time 2 "$health_url" >/dev/null 2>&1; then
     health_ready=1
     break
   fi

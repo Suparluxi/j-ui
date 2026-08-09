@@ -29,7 +29,7 @@ func TestUpdateHealthCheckSupportsLoopbackHTTPS(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !bytes.Contains(script, []byte(`for _ in {1..60}; do`)) ||
-		!bytes.Contains(script, []byte(`curl -kfsS --max-time 2 "$health_url" >/dev/null 2>&1`)) {
+		!bytes.Contains(script, []byte(`curl --http1.1 -kfsS --max-time 2 "$health_url" >/dev/null 2>&1`)) {
 		t.Fatal("updater health check must allow the public certificate on its loopback-only probe")
 	}
 	for _, expected := range []string{
