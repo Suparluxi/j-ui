@@ -109,6 +109,13 @@ func TestURIProfilesFilterClientIncompatibleProtocols(t *testing.T) {
 			}},
 			client: client,
 		},
+		{
+			host: "example.com",
+			node: model.Node{Name: "AnyTLS+Reality", Protocol: model.ProtocolAnyTLSReality, Port: 9443, Settings: map[string]any{
+				"server_name": "example.com", "public_key": "public", "short_id": "abcd",
+			}},
+			client: client,
+		},
 	}
 	decode := func(profile string) string {
 		body, err := base64.StdEncoding.DecodeString(string(renderURIList(items, profile)))
@@ -117,13 +124,13 @@ func TestURIProfilesFilterClientIncompatibleProtocols(t *testing.T) {
 		}
 		return string(body)
 	}
-	if value := decode("v2rayn"); !strings.Contains(value, "#Reality") || !strings.Contains(value, "#H2") || !strings.Contains(value, "type=raw") || !strings.Contains(value, "headerType=http") {
+	if value := decode("v2rayn"); !strings.Contains(value, "#Reality") || !strings.Contains(value, "#H2") || !strings.Contains(value, "type=raw") || !strings.Contains(value, "headerType=http") || !strings.Contains(value, "anytls://") {
 		t.Fatalf("unexpected v2rayN profile: %s", value)
 	}
-	if value := decode("shadowrocket"); !strings.Contains(value, "vless://") {
+	if value := decode("shadowrocket"); !strings.Contains(value, "vless://") || strings.Contains(value, "anytls://") {
 		t.Fatalf("unexpected Shadowrocket profile: %s", value)
 	}
-	if value := decode("base64"); !strings.Contains(value, "vless://") {
+	if value := decode("base64"); !strings.Contains(value, "vless://") || !strings.Contains(value, "anytls://") {
 		t.Fatalf("unexpected ordinary profile: %s", value)
 	}
 }

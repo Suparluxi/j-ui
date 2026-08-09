@@ -195,6 +195,9 @@ func (s *Service) Preview(ctx context.Context, format string) (Preview, error) {
 func renderURIList(items []item, profile string) []byte {
 	links := make([]string, 0, len(items))
 	for _, item := range items {
+		if !supportsURIProfile(profile, item.node.Protocol) {
+			continue
+		}
 		link, err := URIForProfile(item.node, item.client, item.host, profile)
 		if err == nil {
 			links = append(links, link)
@@ -203,6 +206,10 @@ func renderURIList(items []item, profile string) []byte {
 		}
 	}
 	return []byte(base64.StdEncoding.EncodeToString([]byte(strings.Join(links, "\n"))))
+}
+
+func supportsURIProfile(profile, protocol string) bool {
+	return profile != "shadowrocket" || protocol != model.ProtocolAnyTLSReality
 }
 
 // URIForProfile preserves the standard link for most clients and maps H2 to
