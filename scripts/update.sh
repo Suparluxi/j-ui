@@ -300,6 +300,9 @@ rm -f \
   /usr/local/bin/j-uI \
   /usr/local/bin/jui-menu
 systemctl daemon-reload
+if systemctl is-enabled --quiet j-ui-certificate-renew.timer; then
+  systemctl restart j-ui-certificate-renew.timer
+fi
 health_url="$(/usr/local/bin/j-ui internal-health-url)"
 
 if ! systemctl restart j-ui-sing-box.service j-ui.service ||

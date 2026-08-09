@@ -1029,7 +1029,8 @@ env -u JUI_DATA_DIR -u JUI_CONFIG_DIR -u JUI_SINGBOX_BINARY \
 /usr/local/lib/j-ui/sing-box check -c /etc/j-ui/sing-box.json
 systemctl enable j-ui-sing-box.service j-ui.service
 if [[ "$certificate_mode" == "auto" ]]; then
-  systemctl enable --now j-ui-certificate-renew.timer
+  systemctl enable j-ui-certificate-renew.timer
+  systemctl restart j-ui-certificate-renew.timer
 else
   systemctl disable --now j-ui-certificate-renew.timer 2>/dev/null || true
 fi

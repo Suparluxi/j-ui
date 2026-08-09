@@ -37,6 +37,7 @@ func TestUpdateHealthCheckSupportsLoopbackHTTPS(t *testing.T) {
 		`"${temporary_directory}/sing-box" check -c /etc/j-ui/sing-box.json`,
 		`install -m 0755 "${temporary_directory}/sing-box" /usr/local/lib/j-ui/sing-box`,
 		`/usr/local/lib/j-ui/sing-box`,
+		`systemctl restart j-ui-certificate-renew.timer`,
 	} {
 		if !bytes.Contains(script, []byte(expected)) {
 			t.Fatalf("updater sing-box upgrade behavior missing %q", expected)

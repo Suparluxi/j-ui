@@ -269,6 +269,7 @@ func TestInstallConfiguresNodeStartPort(t *testing.T) {
 		`/usr/local/lib/j-ui/ssl.sh --certificate-only "$node_public_host"`,
 		`configure_args+=(--public-host "$node_public_host" --management-host "$public_host")`,
 		`j-ui-certificate-renew.timer`,
+		`systemctl restart j-ui-certificate-renew.timer`,
 		`j-ui-certificate-issue@.service`,
 		`installing_dependencies`,
 		`dependencies_ready`,
