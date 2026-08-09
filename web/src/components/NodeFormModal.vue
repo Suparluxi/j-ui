@@ -235,16 +235,28 @@ function isDomainName(value: string): boolean {
     !configured.toLowerCase().endsWith(".jui.test");
 }
 
+function isIPv4Address(value: string): boolean {
+  const octets = value.split(".");
+  return octets.length === 4 && octets.every(octet => {
+    if (!/^\d{1,3}$/.test(octet)) return false;
+    const number = Number(octet);
+    return number >= 0 && number <= 255 && String(number) === String(Number(octet));
+  });
+}
+
 function certificateHost(): string {
   if (form.protocol === "vless_argo" && props.cloudflareTunnelEnabled &&
     (props.mockMode || isDomainName(props.cloudflareTunnelDomain)) && props.cloudflareTunnelDomain.trim()) {
     return props.cloudflareTunnelDomain.trim().toLowerCase();
   }
+  const configured = props.publicHost.trim().replace(/^\[|\]$/g, "");
+  if (form.protocol === "naive" && configured) {
+    return configured;
+  }
   if (props.httpsIngressEnabled &&
     (props.mockMode || isDomainName(props.httpsIngressDomain)) && props.httpsIngressDomain.trim()) {
     return props.httpsIngressDomain.trim().toLowerCase();
   }
-  const configured = props.publicHost.trim().replace(/^\[|\]$/g, "");
   if (props.certificateReady && props.certificateServerName.trim()) {
     return props.certificateServerName.trim();
   }
@@ -343,8 +355,14 @@ function confirmProtocol() {
   form.wsPath = protocol.id === "vless_argo" ? "/jui-argo" : "/jui";
   form.serviceName = "jui-grpc";
   form.certificateMode = props.certificateModeDefault;
-  form.certificatePath = props.certificatePathDefault;
-  form.keyPath = props.certificateKeyPathDefault;
+  const naiveIPv4Certificate = protocol.id === "naive" && form.certificateMode === "auto" &&
+    isIPv4Address(props.publicHost.trim());
+  form.certificatePath = naiveIPv4Certificate
+    ? `/etc/letsencrypt/live/${props.publicHost.trim()}/fullchain.pem`
+    : props.certificatePathDefault;
+  form.keyPath = naiveIPv4Certificate
+    ? `/etc/letsencrypt/live/${props.publicHost.trim()}/privkey.pem`
+    : props.certificateKeyPathDefault;
   form.serverName = usesReality.value ? defaultRealityTarget : certificateHost();
   form.publicHostOverride = ["vless_ws_tls", "vless_argo"].includes(protocol.id)
     ? form.serverName

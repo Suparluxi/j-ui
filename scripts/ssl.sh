@@ -3,6 +3,7 @@ set -Eeuo pipefail
 
 readonly certbot="/opt/j-ui/certbot/bin/certbot"
 firewall_opened=0
+certificate_only=0
 
 close_acme_firewall() {
   if [[ $firewall_opened -eq 1 ]]; then
@@ -48,6 +49,11 @@ if [[ "${1:-}" == "--renew" ]]; then
   exit 0
 fi
 
+if [[ "${1:-}" == "--certificate-only" ]]; then
+  certificate_only=1
+  shift
+fi
+
 host="${1:-}"
 if [[ -z "$host" ]]; then
   host="$(/usr/local/bin/j-ui get-public-host)"
@@ -67,7 +73,9 @@ if [[ "$host" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]]; then
 fi
 if [[ -s "$certificate" && -s "$private_key" ]] &&
   openssl x509 -in "$certificate" -noout -checkend 86400 "${hostname_check[@]}" >/dev/null 2>&1; then
-  enable_panel_tls "$certificate" "$private_key"
+  if [[ $certificate_only -eq 0 ]]; then
+    enable_panel_tls "$certificate" "$private_key"
+  fi
   printf 'Reusing valid SSL certificate: %s\n' "$certificate"
   exit 0
 fi
@@ -93,5 +101,7 @@ if ! grep -Fxq "$host" /etc/j-ui/certificate-managed-by-jui; then
   printf '%s\n' "$host" >> /etc/j-ui/certificate-managed-by-jui
 fi
 chmod 0600 /etc/j-ui/certificate-managed-by-jui
-enable_panel_tls "$certificate" "$private_key"
+if [[ $certificate_only -eq 0 ]]; then
+  enable_panel_tls "$certificate" "$private_key"
+fi
 printf 'SSL certificate issued: %s\n' "$certificate"

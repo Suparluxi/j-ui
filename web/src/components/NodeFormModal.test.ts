@@ -235,6 +235,20 @@ describe("NodeFormModal", () => {
     expect(inputFor(root, "证书域名").value).toBe("198.51.100.10");
   });
 
+  it("uses the direct IPv4 certificate for Naive even when HTTPS ingress is configured", async () => {
+    const root = mountForm(() => undefined, "198.51.100.10", false, {
+      httpsIngressEnabled: true,
+      httpsIngressDomain: "panel.example.com",
+      certificateReady: true,
+      certificateServerName: "panel.example.com"
+    });
+    await selectProtocol(root, "Naive");
+    root.querySelector<HTMLButtonElement>(".protocol-confirm-button")?.click();
+    await nextTick();
+
+    expect(inputFor(root, "证书域名").value).toBe("198.51.100.10");
+  });
+
   it("unlocks every protocol in mock mode", async () => {
     const root = mountForm(() => undefined);
     const options = await protocolOptions(root);
