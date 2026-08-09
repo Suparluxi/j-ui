@@ -107,6 +107,7 @@ i18n() {
       profile_saved) printf '安装配置已保存。\n' ;;
       credentials_missing) printf '无法获取新管理员密码，安装已停止且不会输出不可用的登录信息。\n' ;;
       credentials_verification_failed) printf '新管理员账号或密码未能通过运行中面板的登录验证，安装将回滚且不会输出错误凭据。\n' ;;
+      credentials_verification_unavailable) printf '本机登录验证请求失败（%s），安装将回滚；这不代表账号或密码错误。\n' "$1" ;;
       token_invalid) printf 'JUI_GITHUB_TOKEN 包含不支持的字符。\n' ;;
       release_asset_missing) printf '未找到发布文件 %s。\n' "$1" ;;
       install_rollback_success) printf '安装失败；受管理的文件、数据、配置和服务状态已恢复。\n' ;;
@@ -173,6 +174,7 @@ i18n() {
     profile_saved) printf 'Installation profile saved.\n' ;;
     credentials_missing) printf 'Unable to obtain the new administrator password. Installation stopped without printing unusable login details.\n' ;;
     credentials_verification_failed) printf 'The new administrator credentials failed login verification against the running panel. Installation will roll back without printing invalid credentials.\n' ;;
+    credentials_verification_unavailable) printf 'The local login verification request failed (%s). Installation will roll back; this does not mean the username or password is incorrect.\n' "$1" ;;
     token_invalid) printf 'JUI_GITHUB_TOKEN contains unsupported characters.\n' ;;
     release_asset_missing) printf 'Release asset %s was not found.\n' "$1" ;;
     install_rollback_success) printf 'Installation failed; managed files, data, configuration, and service state were restored.\n' ;;
@@ -1024,7 +1026,7 @@ health_url="$(
 )"
 health_ready=0
 for _ in {1..60}; do
-  if curl -kfsS --max-time 2 "$health_url" >/dev/null 2>&1; then
+  if curl --http1.1 -kfsS --max-time 2 "$health_url" >/dev/null 2>&1; then
     health_ready=1
     break
   fi
@@ -1039,20 +1041,54 @@ fi
 login_url="${health_url%/api/v1/health}/api/v1/auth/login"
 logout_url="${health_url%/api/v1/health}/api/v1/auth/logout"
 login_cookie_file="${temporary_directory}/login-cookie.txt"
+login_response_file="${temporary_directory}/login-response.json"
+login_error_file="${temporary_directory}/login-error.txt"
 login_payload="$(jq -nc --arg username "$admin_username" --arg password "$admin_password" \
   '{username:$username,password:$password}')"
-if ! login_response="$(curl -kfsS --max-time 5 -c "$login_cookie_file" \
-  -H 'Content-Type: application/json' --data "$login_payload" "$login_url")" ||
-  [[ "$(jq -r '.username // empty' <<<"$login_response")" != "$admin_username" ]]; then
-  i18n credentials_verification_failed >&2
+login_status=""
+login_curl_error=""
+for _ in {1..5}; do
+  : >"$login_response_file"
+  : >"$login_error_file"
+  if login_status="$(curl --http1.1 -ksS --max-time 5 -o "$login_response_file" \
+    -w '%{http_code}' -c "$login_cookie_file" -H 'Content-Type: application/json' \
+    --data "$login_payload" "$login_url" 2>"$login_error_file")"; then
+    login_response="$(<"$login_response_file")"
+    if [[ "$login_status" == "200" ]] &&
+      [[ "$(jq -r '.username // empty' <<<"$login_response")" == "$admin_username" ]]; then
+      credentials_verified=1
+      break
+    fi
+    if [[ "$login_status" == "401" || "$login_status" == "200" ]]; then
+      break
+    fi
+  else
+    login_curl_error="$(tail -n 1 "$login_error_file" 2>/dev/null || true)"
+  fi
+  sleep 1
+done
+if [[ $credentials_verified -ne 1 ]]; then
+  if [[ "$login_status" == "401" || "$login_status" == "200" ]]; then
+    i18n credentials_verification_failed >&2
+  else
+    verification_detail="HTTP ${login_status:-000}"
+    if [[ -n "$login_curl_error" ]]; then
+      verification_detail="$login_curl_error"
+    fi
+    i18n credentials_verification_unavailable "$verification_detail" >&2
+  fi
+  rm -f "$login_response_file" "$login_error_file" "$login_cookie_file"
+  login_payload=""
   exit 1
 fi
+rm -f "$login_response_file" "$login_error_file"
 login_csrf_token="$(jq -r '.csrfToken // empty' <<<"$login_response")"
 if [[ -n "$login_csrf_token" ]]; then
-  curl -kfsS --max-time 5 -b "$login_cookie_file" -X POST \
+  curl --http1.1 -kfsS --max-time 5 -b "$login_cookie_file" -X POST \
     -H "X-CSRF-Token: ${login_csrf_token}" "$logout_url" >/dev/null 2>&1 || true
 fi
-credentials_verified=1
+rm -f "$login_cookie_file"
+login_payload=""
 management_firewall_output="$(/usr/local/bin/j-ui ensure-management-firewall)"
 if grep -qx 'Ownership: owned' <<<"$management_firewall_output"; then
   management_firewall_added=1
