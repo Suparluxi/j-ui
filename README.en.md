@@ -52,8 +52,7 @@ Release packages bundle and verify the designated stable sing-box version. Faile
 Run as `root` on the VPS:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Suparluxi/j-ui/main/scripts/install.sh -o /tmp/j-ui-install.sh
-bash /tmp/j-ui-install.sh
+curl -fsSL https://raw.githubusercontent.com/Suparluxi/j-ui/main/scripts/install.sh -o /tmp/j-ui-install.sh && bash /tmp/j-ui-install.sh
 ```
 
 The installer sets up dependencies, sing-box, systemd, firewall rules, and initial data before guiding you through language, public IPv4 address, starting node port, SSL, administrator credentials, and optional BBR + FQ. The final summary prints the management URL and login details.

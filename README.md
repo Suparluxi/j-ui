@@ -52,8 +52,7 @@ J-UI 发布包内置并校验指定的 sing-box 稳定版本，升级失败时�
 使用 `root` 运行：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Suparluxi/j-ui/main/scripts/install.sh -o /tmp/j-ui-install.sh
-bash /tmp/j-ui-install.sh
+curl -fsSL https://raw.githubusercontent.com/Suparluxi/j-ui/main/scripts/install.sh -o /tmp/j-ui-install.sh && bash /tmp/j-ui-install.sh
 ```
 
 安装器会完成依赖、sing-box、systemd、防火墙和初始化，再引导配置语言、IPv4 公网地址、节点起始端口、SSL、管理员账号、密码及可选的 BBR + FQ。完成后会显示可直接访问的管理地址和登录信息。
