@@ -238,6 +238,8 @@ func TestInstallConfiguresNodeStartPort(t *testing.T) {
 		`curl -4 -fsSL --max-time 5 'https://api.ipify.org'`,
 		`detected_public_host="${JUI_PUBLIC_HOST:-}"`,
 		`detected_public_host="$(detect_public_ip)"`,
+		`installation_listen="${JUI_LISTEN_ADDRESS:-${installation_listen:-0.0.0.0:8443}}"`,
+		`if [[ $preserve_existing_data -eq 1 && -r /etc/j-ui/j-ui.env ]]; then`,
 		`if [[ "$public_host" == *:* ]]; then`,
 		`JUI_NODE_START_PORT="${node_start_port}" /usr/local/bin/j-ui init`,
 		`management_url="https://${url_host}:${management_port}${web_base_path}"`,

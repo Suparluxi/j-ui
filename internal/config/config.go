@@ -36,7 +36,7 @@ func LoadFromFile(path string) Config {
 	dataDir := value("JUI_DATA_DIR", "/var/lib/j-ui", fileValues)
 	configDir := value("JUI_CONFIG_DIR", "/etc/j-ui", fileValues)
 	return Config{
-		ListenAddress:   value("JUI_LISTEN_ADDRESS", "0.0.0.0:8080", fileValues),
+		ListenAddress:   value("JUI_LISTEN_ADDRESS", "0.0.0.0:8443", fileValues),
 		TLSCertificate:  value("JUI_TLS_CERTIFICATE_PATH", "", fileValues),
 		TLSPrivateKey:   value("JUI_TLS_KEY_PATH", "", fileValues),
 		DataDir:         dataDir,

@@ -707,7 +707,7 @@ if [[ -e /var/lib/j-ui/j-ui.db ]]; then
   esac
 fi
 
-if [[ -r /etc/j-ui/j-ui.env ]]; then
+if [[ $preserve_existing_data -eq 1 && -r /etc/j-ui/j-ui.env ]]; then
   installation_listen="$(
     sed -n 's/^JUI_LISTEN_ADDRESS=//p' /etc/j-ui/j-ui.env | head -n 1
   )"
@@ -716,7 +716,7 @@ if [[ -r /etc/j-ui/j-ui.env ]]; then
   installation_listen="${installation_listen%\'}"
   installation_listen="${installation_listen#\'}"
 fi
-installation_listen="${JUI_LISTEN_ADDRESS:-${installation_listen:-0.0.0.0:8080}}"
+installation_listen="${JUI_LISTEN_ADDRESS:-${installation_listen:-0.0.0.0:8443}}"
 case "$installation_listen" in
   127.0.0.1:*)
     management_port="${installation_listen##*:}"

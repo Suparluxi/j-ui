@@ -36,6 +36,13 @@ PATH=/attacker/bin
 	}
 }
 
+func TestLoadFromFileDefaultsToCloudflareHTTPSPort(t *testing.T) {
+	cfg := LoadFromFile(filepath.Join(t.TempDir(), "missing.env"))
+	if cfg.ListenAddress != "0.0.0.0:8443" {
+		t.Fatalf("default listen address = %q", cfg.ListenAddress)
+	}
+}
+
 func TestVPNGateMaximumFallsBackForUnsafeValues(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "j-ui.env")
 	if err := os.WriteFile(path, []byte("JUI_VPNGATE_MAX_EXITS=99\nJUI_NODE_START_PORT=70000\n"), 0o600); err != nil {
