@@ -9,6 +9,7 @@ const (
 	NotFound    Kind = "not_found"
 	Conflict    Kind = "conflict"
 	Unavailable Kind = "unavailable"
+	Internal    Kind = "internal"
 )
 
 type Error struct {

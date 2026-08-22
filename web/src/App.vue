@@ -61,6 +61,21 @@ interface VPNGateInspection {
     connection: { asn?: string; asName?: string; org?: string; isp?: string; companyName?: string };
   };
 }
+interface ResidentialNodeJob {
+  id: string;
+  status: "queued" | "running" | "succeeded" | "failed";
+  message: string;
+  createdAt: string;
+  updatedAt: string;
+  node?: NodeRecord;
+  uri?: string;
+  source?: string;
+  country?: string;
+  exitId?: number;
+  reusedExit?: boolean;
+  expiresAt?: string;
+  error?: ApiError;
+}
 type SubscriptionFormat = "base64" | "v2rayn" | "shadowrocket" | "clash" | "singbox";
 type Language = "zh-CN" | "en";
 interface SubscriptionInfo {
@@ -125,6 +140,7 @@ const vpnGateInspecting = ref(false);
 const vpnGateInspection = ref<VPNGateInspection | null>(null);
 const vpnGateInspectionCollapsed = ref(false);
 const residentialCreating = ref(false);
+const residentialJob = ref<ResidentialNodeJob | null>(null);
 const residentialForm = reactive({
   source: "vpngate" as "vpngate" | "manual", nodeId: 0, country: "JP",
   candidateHostName: "", durationMinutes: 30,
@@ -533,10 +549,41 @@ function normalizeManualProxyEndpoint() {
   residentialForm.port = port;
 }
 
+async function waitForResidentialNodeJob(jobId: string): Promise<ResidentialNodeJob> {
+  let networkFailures = 0;
+  for (let attempt = 0; attempt < 360; attempt += 1) {
+    try {
+      const job = await request<ResidentialNodeJob>(
+        `/api/v1/residential-nodes/jobs/${encodeURIComponent(jobId)}`
+      );
+      residentialJob.value = job;
+      networkFailures = 0;
+      if (job.status === "succeeded") return job;
+      if (job.status === "failed") {
+        throw job.error ?? {
+          code: "residential_job_failed",
+          message: job.message || tr("住宅节点创建失败", "Failed to create residential node")
+        } satisfies ApiError;
+      }
+    } catch (caught) {
+      const apiError = caught as Partial<ApiError>;
+      if (apiError.code && apiError.message) throw caught;
+      networkFailures += 1;
+      if (networkFailures >= 5) throw caught;
+    }
+    await new Promise<void>(resolve => window.setTimeout(resolve, 1000));
+  }
+  throw {
+    code: "residential_job_timeout",
+    message: tr("创建任务等待超时，请刷新页面查看节点状态", "The creation task timed out; refresh to check the node status")
+  } satisfies ApiError;
+}
+
 async function createResidentialNode() {
   residentialError.value = "";
   error.value = "";
   notice.value = "";
+  residentialJob.value = null;
   residentialCreating.value = true;
   try {
     if (residentialForm.source === "manual") normalizeManualProxyEndpoint();
@@ -552,10 +599,17 @@ async function createResidentialNode() {
       server: residentialForm.server, port: residentialForm.port,
       username: residentialForm.username, password: residentialForm.password
     };
-    await request(`/api/v1/residential-nodes/${residentialForm.source}`, {
-      method: "POST",
-      body: JSON.stringify(residentialForm.source === "vpngate" ? vpnGatePayload : manualPayload)
-    });
+    if (residentialForm.source === "vpngate") {
+      const queued = await request<ResidentialNodeJob>("/api/v1/residential-nodes/vpngate", {
+        method: "POST", body: JSON.stringify(vpnGatePayload)
+      });
+      residentialJob.value = queued;
+      await waitForResidentialNodeJob(queued.id);
+    } else {
+      await request("/api/v1/residential-nodes/manual", {
+        method: "POST", body: JSON.stringify(manualPayload)
+      });
+    }
     await Promise.all([loadNodes(), loadVPNGate(), loadOutbounds(), loadNodePortSettings()]);
     notice.value = tr("住宅节点已创建；可直接复制节点链接导入客户端", "Residential node created; copy its link directly into your client");
   } catch (caught) {
@@ -1438,6 +1492,9 @@ function residentialNodeFaulted(node: NodeRecord): boolean {
                   : tr("正在验证上游代理并创建节点…", "Verifying upstream proxy and creating node…")
                 : tr("创建订阅节点", "Create Subscription Node") }}
             </button>
+            <p v-if="residentialJob && residentialCreating" class="residential-job-progress" role="status">
+              {{ residentialJob.message || tr("正在处理…", "Working…") }}
+            </p>
             <p v-if="residentialError" class="residential-form-error" role="alert">{{ residentialError }}</p>
           </div>
         </form>

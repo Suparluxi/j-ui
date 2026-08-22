@@ -107,7 +107,7 @@ See [AGENTS.md](AGENTS.md) for contribution guidelines.
 
 ## License and Acceptable Use
 
-J-UI is source-available software licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE) for noncommercial purposes only. It is not open source under the OSI definition. Third-party components remain subject to their respective licenses; see [Third-Party Notices](THIRD_PARTY_NOTICES.md).
+J-UI is released as open-source software under the [MIT License](LICENSE). You may use, modify, distribute, and relicense J-UI, provided that the copyright and license notices are preserved. Third-party components remain subject to their respective licenses; see [Third-Party Notices](THIRD_PARTY_NOTICES.md).
 
 J-UI is intended only for servers controlled by the user or explicitly authorized for their use. It does not provide public nodes or a hosted proxy service. Do not use it for unauthorized access, attacks, fraud, evasion of platform rules, or any other unlawful activity. See the [Legal and Acceptable Use Notice](LEGAL_NOTICE.md).
 

@@ -29,7 +29,7 @@ import (
 	"github.com/Suparluxi/j-ui/internal/vpngate"
 )
 
-var Version = "0.4.39"
+var Version = "1.1.0"
 
 const countryLookupBaseURL = "https://ip.net.coffee/api/ip/lookup/"
 
@@ -50,10 +50,11 @@ type Dependencies struct {
 }
 
 type Handler struct {
-	frontend fs.FS
-	deps     Dependencies
-	mux      *http.ServeMux
-	settings sync.Mutex
+	frontend        fs.FS
+	deps            Dependencies
+	mux             *http.ServeMux
+	settings        sync.Mutex
+	residentialJobs *residentialJobManager
 }
 
 type healthResponse struct {
@@ -80,7 +81,12 @@ func NewHandler(frontend fs.FS, dependencies ...Dependencies) http.Handler {
 	if len(dependencies) != 0 {
 		deps = dependencies[0]
 	}
-	handler := &Handler{frontend: frontend, deps: deps, mux: http.NewServeMux()}
+	handler := &Handler{
+		frontend:        frontend,
+		deps:            deps,
+		mux:             http.NewServeMux(),
+		residentialJobs: newResidentialJobManager(),
+	}
 	handler.routes()
 	return securityHeaders(validateAPIPathIDs(jsonMethodErrors(handler.mux)))
 }
@@ -142,6 +148,7 @@ func (h *Handler) routes() {
 	h.mux.Handle("POST /api/v1/vpngate/outbounds/{id}/extend", h.requireAuth(http.HandlerFunc(h.extendVPNGateExit)))
 	h.mux.Handle("DELETE /api/v1/vpngate/outbounds/{id}", h.requireAuth(http.HandlerFunc(h.deleteVPNGateExit)))
 	h.mux.Handle("POST /api/v1/residential-nodes/vpngate", h.requireAuth(http.HandlerFunc(h.createVPNGateResidentialNode)))
+	h.mux.Handle("GET /api/v1/residential-nodes/jobs/{id}", h.requireAuth(http.HandlerFunc(h.getResidentialNodeJob)))
 	h.mux.Handle("POST /api/v1/residential-nodes/manual", h.requireAuth(http.HandlerFunc(h.createManualResidentialNode)))
 	h.mux.Handle("DELETE /api/v1/residential-nodes/{id}", h.requireAuth(http.HandlerFunc(h.deleteResidentialNode)))
 
@@ -168,7 +175,8 @@ func validateAPIPathIDs(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		residentialNodePath := strings.HasPrefix(r.URL.Path, "/api/v1/residential-nodes/") &&
 			r.URL.Path != "/api/v1/residential-nodes/vpngate" &&
-			r.URL.Path != "/api/v1/residential-nodes/manual"
+			r.URL.Path != "/api/v1/residential-nodes/manual" &&
+			!strings.HasPrefix(r.URL.Path, "/api/v1/residential-nodes/jobs/")
 		if strings.HasPrefix(r.URL.Path, "/api/v1/nodes/") ||
 			strings.HasPrefix(r.URL.Path, "/api/v1/outbounds/") ||
 			strings.HasPrefix(r.URL.Path, "/api/v1/vpngate/outbounds/") ||
@@ -287,6 +295,10 @@ func apiAllowedMethods(path string) ([]string, bool) {
 	if len(parts) == 4 && parts[0] == "api" && parts[1] == "v1" &&
 		parts[2] == "residential-nodes" {
 		return []string{http.MethodDelete}, true
+	}
+	if len(parts) == 5 && parts[0] == "api" && parts[1] == "v1" &&
+		parts[2] == "residential-nodes" && parts[3] == "jobs" {
+		return []string{http.MethodGet}, true
 	}
 	if len(parts) >= 3 && parts[0] == "api" && parts[1] == "v1" && parts[2] == "vpngate" {
 		switch {
@@ -852,17 +864,28 @@ func (h *Handler) requireProtocolPrerequisite(
 	serverName string,
 	nodePort int,
 ) bool {
+	if err := h.checkProtocolPrerequisite(ctx, protocol, serverName, nodePort); err != nil {
+		writeServiceError(w, err)
+		return false
+	}
+	return true
+}
+
+func (h *Handler) checkProtocolPrerequisite(
+	ctx context.Context,
+	protocol string,
+	serverName string,
+	nodePort int,
+) error {
 	if h.deps.MockMode || (protocol != model.ProtocolVLESSWSTLS && protocol != model.ProtocolVLESSArgo) {
-		return true
+		return nil
 	}
 	if protocol == model.ProtocolVLESSWSTLS && !model.CloudflareHTTPSPort(nodePort) {
-		writeError(w, http.StatusConflict, "unsupported_websocket_port", "VLESS-WS 必须使用 Cloudflare 支持的 HTTPS 端口：443、2053、2083、2087、2096 或 8443", nil)
-		return false
+		return problem.New(problem.Conflict, "unsupported_websocket_port", "VLESS-WS 必须使用 Cloudflare 支持的 HTTPS 端口：443、2053、2083、2087、2096 或 8443", nil)
 	}
 	settings, err := h.protocolPrerequisites(ctx)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "setting_failed", "读取协议前置配置失败", nil)
-		return false
+		return problem.New(problem.Internal, "setting_failed", "读取协议前置配置失败", err)
 	}
 	expectedDomain := settings.HTTPSIngressDomain
 	missingMessage := "VLESS-WS 需要先验证 HTTPS 入口域名"
@@ -875,29 +898,24 @@ func (h *Handler) requireProtocolPrerequisite(
 		enabled = settings.CloudflareTunnelEnabled
 	}
 	if !enabled || expectedDomain == "" {
-		writeError(w, http.StatusConflict, "protocol_prerequisite_missing", missingMessage, nil)
-		return false
+		return problem.New(problem.Conflict, "protocol_prerequisite_missing", missingMessage, nil)
 	}
 	if !strings.EqualFold(strings.TrimSpace(serverName), expectedDomain) {
-		writeError(w, http.StatusConflict, "protocol_domain_mismatch", "节点域名必须与已验证的前置配置域名一致", nil)
-		return false
+		return problem.New(problem.Conflict, "protocol_domain_mismatch", "节点域名必须与已验证的前置配置域名一致", nil)
 	}
 	var verifyErr error
 	if protocol == model.ProtocolVLESSArgo {
 		if h.deps.VerifyCloudflareTunnel == nil {
-			writeError(w, http.StatusInternalServerError, "prerequisite_check_unavailable", "当前安装未提供 Tunnel 检测器", nil)
-			return false
+			return problem.New(problem.Internal, "prerequisite_check_unavailable", "当前安装未提供 Tunnel 检测器", nil)
 		}
 		var originPort int
 		originPort, verifyErr = h.deps.VerifyCloudflareTunnel(ctx, expectedDomain, settings.CloudflareOriginPort)
 		if verifyErr == nil && originPort != nodePort {
-			writeError(w, http.StatusConflict, "tunnel_origin_mismatch", fmt.Sprintf("Argo 监听端口必须与 Tunnel 本机入口端口 %d 一致", originPort), nil)
-			return false
+			return problem.New(problem.Conflict, "tunnel_origin_mismatch", fmt.Sprintf("Argo 监听端口必须与 Tunnel 本机入口端口 %d 一致", originPort), nil)
 		}
 	} else {
 		if h.deps.VerifyHTTPSIngress == nil {
-			writeError(w, http.StatusInternalServerError, "prerequisite_check_unavailable", "当前安装未提供 HTTPS 入口检测器", nil)
-			return false
+			return problem.New(problem.Internal, "prerequisite_check_unavailable", "当前安装未提供 HTTPS 入口检测器", nil)
 		}
 		verifyErr = h.deps.VerifyHTTPSIngress(ctx, expectedDomain)
 	}
@@ -913,10 +931,9 @@ func (h *Handler) requireProtocolPrerequisite(
 		if encoded, marshalErr := json.Marshal(settings); marshalErr == nil {
 			_ = h.deps.Store.SetSetting(context.WithoutCancel(ctx), "protocol_prerequisites", string(encoded))
 		}
-		writeError(w, http.StatusConflict, "prerequisite_check_failed", "前置配置已失效，请重新检测："+verifyErr.Error(), nil)
-		return false
+		return problem.New(problem.Conflict, "prerequisite_check_failed", "前置配置已失效，请重新检测："+verifyErr.Error(), verifyErr)
 	}
-	return true
+	return nil
 }
 
 func (h *Handler) protocolPrerequisiteInUse(ctx context.Context, target string) (bool, error) {
@@ -1143,63 +1160,88 @@ func (h *Handler) createVPNGateResidentialNode(w http.ResponseWriter, r *http.Re
 	if !decodeJSON(w, r, &input) {
 		return
 	}
+	job, err := h.residentialJobs.create("vpngate")
+	if err != nil {
+		writeInternal(w, err)
+		return
+	}
+	go h.runVPNGateResidentialNode(job.ID, input)
+	writeJSON(w, http.StatusAccepted, job)
+}
+
+func (h *Handler) getResidentialNodeJob(w http.ResponseWriter, r *http.Request) {
+	job, ok := h.residentialJobs.get(strings.TrimSpace(r.PathValue("id")))
+	if !ok {
+		writeError(w, http.StatusNotFound, "residential_job_not_found", "创建任务不存在或已过期", nil)
+		return
+	}
+	writeJSON(w, http.StatusOK, job)
+}
+
+func (h *Handler) runVPNGateResidentialNode(id string, input residentialVPNGateInput) {
+	h.residentialJobs.start(id)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
 	h.settings.Lock()
 	defer h.settings.Unlock()
-	sourceNode, err := h.deps.Nodes.Get(r.Context(), input.NodeID)
+	result, err := h.provisionVPNGateResidentialNode(ctx, input)
 	if err != nil {
-		writeServiceError(w, err)
+		h.residentialJobs.fail(id, err)
 		return
+	}
+	h.residentialJobs.complete(id, result)
+}
+
+func (h *Handler) provisionVPNGateResidentialNode(ctx context.Context, input residentialVPNGateInput) (residentialJobResult, error) {
+	sourceNode, err := h.deps.Nodes.Get(ctx, input.NodeID)
+	if err != nil {
+		return residentialJobResult{}, err
 	}
 	if sourceNode.Protocol == model.ProtocolVLESSArgo {
-		writeError(w, http.StatusConflict, "unsupported_residential_protocol", "Argo 绑定固定 Tunnel 端口，不能作为临时住宅节点模板", nil)
-		return
+		return residentialJobResult{}, problem.New(problem.Conflict, "unsupported_residential_protocol", "Argo 绑定固定 Tunnel 端口，不能作为临时住宅节点模板", nil)
 	}
-	if !h.requireProtocolPrerequisite(w, r.Context(), sourceNode.Protocol, nodeServerName(sourceNode.Settings), sourceNode.Port) {
-		return
+	if err := h.checkProtocolPrerequisite(ctx, sourceNode.Protocol, nodeServerName(sourceNode.Settings), sourceNode.Port); err != nil {
+		return residentialJobResult{}, err
 	}
-	exit, reused, err := h.runningVPNGateExit(r.Context(), input.CandidateHostName)
+	exit, reused, err := h.runningVPNGateExit(ctx, input.CandidateHostName)
 	if err != nil {
-		writeServiceError(w, err)
-		return
+		return residentialJobResult{}, err
 	}
 	if !reused {
 		exitName := "住宅节点-" + sourceNode.Name
-		exit, err = h.deps.VPNGate.Create(r.Context(), vpngate.CreateInput{
+		exit, err = h.deps.VPNGate.Create(ctx, vpngate.CreateInput{
 			Name: exitName, Country: input.Country, CandidateHostName: input.CandidateHostName,
 			DurationMinutes: input.DurationMinutes, Permanent: input.Permanent, FailurePolicy: input.FailurePolicy,
 		})
 		if err != nil {
 			if exit.ID != 0 {
-				_ = h.deps.VPNGate.Delete(context.WithoutCancel(r.Context()), exit.ID)
+				_ = h.deps.VPNGate.Delete(context.WithoutCancel(ctx), exit.ID)
 			}
-			writeServiceError(w, err)
-			return
+			return residentialJobResult{}, err
 		}
 	}
-	name := residentialNodeName(h.serverName(r.Context()), sourceNode.Protocol, "vpngate", exit.Country)
+	name := residentialNodeName(h.serverName(ctx), sourceNode.Protocol, "vpngate", exit.Country)
 	node, err := h.deps.Nodes.CloneTemporary(
-		r.Context(), sourceNode.ID, name, exit.OutboundID, exit.ExpiresAt, "vpngate", exit.Country,
+		ctx, sourceNode.ID, name, exit.OutboundID, exit.ExpiresAt, "vpngate", exit.Country,
 	)
 	if err != nil {
 		if !reused {
-			_ = h.deps.VPNGate.Delete(context.WithoutCancel(r.Context()), exit.ID)
+			_ = h.deps.VPNGate.Delete(context.WithoutCancel(ctx), exit.ID)
 		}
-		writeServiceError(w, err)
-		return
+		return residentialJobResult{}, err
 	}
-	uri, err := h.deps.Subscriptions.NodeURI(r.Context(), node.ID)
+	uri, err := h.deps.Subscriptions.NodeURI(ctx, node.ID)
 	if err != nil {
-		_ = h.deps.Nodes.Delete(context.WithoutCancel(r.Context()), node.ID)
+		_ = h.deps.Nodes.Delete(context.WithoutCancel(ctx), node.ID)
 		if !reused {
-			_ = h.deps.VPNGate.Delete(context.WithoutCancel(r.Context()), exit.ID)
+			_ = h.deps.VPNGate.Delete(context.WithoutCancel(ctx), exit.ID)
 		}
-		writeServiceError(w, err)
-		return
+		return residentialJobResult{}, err
 	}
-	writeJSON(w, http.StatusCreated, map[string]any{
-		"node": node, "uri": uri, "source": "vpngate", "country": exit.Country,
-		"exitId": exit.ID, "expiresAt": exit.ExpiresAt, "reusedExit": reused,
-	})
+	return residentialJobResult{
+		Node: node, URI: uri, Source: "vpngate", Country: exit.Country,
+		ExitID: exit.ID, ExpiresAt: exit.ExpiresAt, ReusedExit: reused,
+	}, nil
 }
 
 func (h *Handler) runningVPNGateExit(ctx context.Context, candidateHostName string) (model.VPNGateExit, bool, error) {
@@ -1828,6 +1870,8 @@ func writeServiceError(w http.ResponseWriter, err error) {
 			writeError(w, http.StatusConflict, value.Code, value.Message, nil)
 		case problem.Unavailable:
 			writeError(w, http.StatusBadGateway, value.Code, value.Message, nil)
+		case problem.Internal:
+			writeError(w, http.StatusInternalServerError, value.Code, value.Message, nil)
 		default:
 			writeInternal(w, err)
 		}

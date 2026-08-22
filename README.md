@@ -107,7 +107,7 @@ go vet ./...
 
 ## 许可证与使用边界
 
-J-UI 是采用 [PolyForm Noncommercial License 1.0.0](LICENSE) 的源码可用软件，仅授权非商业用途，不属于 OSI 定义的开源软件。第三方组件继续适用各自的许可证，详见[第三方软件声明](THIRD_PARTY_NOTICES.md)。
+J-UI 采用 [MIT License](LICENSE) 开源发布。你可以使用、修改、分发和再许可 J-UI，但必须保留版权和许可声明。第三方组件继续适用各自的许可证，详见[第三方软件声明](THIRD_PARTY_NOTICES.md)。
 
 J-UI 只用于管理使用者自行控制或已获得明确授权的服务器，不提供公共节点或托管代理服务。请勿用于未授权访问、攻击、欺诈、规避平台规则或其他违法活动。完整条款见[法律与使用声明](LEGAL_NOTICE.md)。
 

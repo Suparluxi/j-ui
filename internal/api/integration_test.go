@@ -624,15 +624,22 @@ func TestAuthenticatedLifecycleAndTokenReset(t *testing.T) {
 		"durationMinutes": 30, "failurePolicy": "block", "maxPing": 1000,
 		"minSpeedMbps": 1, "maxSessions": 100,
 	}, cookie.String(), session.CSRFToken)
-	if vpnResidential.Code != http.StatusCreated {
+	if vpnResidential.Code != http.StatusAccepted {
 		t.Fatalf("create VPNGate residential node status = %d body=%s", vpnResidential.Code, vpnResidential.Body.String())
 	}
+	var queuedVPNResidential struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(vpnResidential.Body).Decode(&queuedVPNResidential); err != nil {
+		t.Fatal(err)
+	}
+	vpnResidentialBody := waitResidentialJob(t, handler, queuedVPNResidential.ID, cookie.String(), session.CSRFToken)
 	var vpnTemporary struct {
 		Node   model.Node `json:"node"`
 		URI    string     `json:"uri"`
 		ExitID int64      `json:"exitId"`
 	}
-	if err := json.NewDecoder(vpnResidential.Body).Decode(&vpnTemporary); err != nil {
+	if err := json.Unmarshal(vpnResidentialBody, &vpnTemporary); err != nil {
 		t.Fatal(err)
 	}
 	if !vpnTemporary.Node.Enabled || vpnTemporary.Node.OutboundID == nil || vpnTemporary.URI == "" ||
@@ -647,15 +654,22 @@ func TestAuthenticatedLifecycleAndTokenReset(t *testing.T) {
 		"nodeId": createdNode.ID, "country": "JP", "candidateHostName": "vpn-test",
 		"durationMinutes": 30, "failurePolicy": "block",
 	}, cookie.String(), session.CSRFToken)
-	if sharedVPNResidential.Code != http.StatusCreated {
+	if sharedVPNResidential.Code != http.StatusAccepted {
 		t.Fatalf("create second node on VPNGate tunnel status = %d body=%s", sharedVPNResidential.Code, sharedVPNResidential.Body.String())
 	}
+	var queuedSharedVPN struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(sharedVPNResidential.Body).Decode(&queuedSharedVPN); err != nil {
+		t.Fatal(err)
+	}
+	sharedVPNResidentialBody := waitResidentialJob(t, handler, queuedSharedVPN.ID, cookie.String(), session.CSRFToken)
 	var sharedVPN struct {
 		Node       model.Node `json:"node"`
 		ExitID     int64      `json:"exitId"`
 		ReusedExit bool       `json:"reusedExit"`
 	}
-	if err := json.NewDecoder(sharedVPNResidential.Body).Decode(&sharedVPN); err != nil {
+	if err := json.Unmarshal(sharedVPNResidentialBody, &sharedVPN); err != nil {
 		t.Fatal(err)
 	}
 	if !sharedVPN.ReusedExit || sharedVPN.ExitID != vpnTemporary.ExitID ||
@@ -716,13 +730,20 @@ func TestAuthenticatedLifecycleAndTokenReset(t *testing.T) {
 		"durationMinutes": 0, "permanent": true, "failurePolicy": "block", "maxPing": 1000,
 		"minSpeedMbps": 1, "maxSessions": 100,
 	}, cookie.String(), session.CSRFToken)
-	if permanentVPNResidential.Code != http.StatusCreated {
+	if permanentVPNResidential.Code != http.StatusAccepted {
 		t.Fatalf("create permanent VPNGate node status = %d body=%s", permanentVPNResidential.Code, permanentVPNResidential.Body.String())
 	}
+	var queuedPermanentVPN struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(permanentVPNResidential.Body).Decode(&queuedPermanentVPN); err != nil {
+		t.Fatal(err)
+	}
+	permanentVPNResidentialBody := waitResidentialJob(t, handler, queuedPermanentVPN.ID, cookie.String(), session.CSRFToken)
 	var permanentVPN struct {
 		Node model.Node `json:"node"`
 	}
-	if err := json.NewDecoder(permanentVPNResidential.Body).Decode(&permanentVPN); err != nil {
+	if err := json.Unmarshal(permanentVPNResidentialBody, &permanentVPN); err != nil {
 		t.Fatal(err)
 	}
 	if permanentVPN.Node.Settings["jui_temporary_expires_at"] != nil {
@@ -1137,6 +1158,41 @@ func assertAPIError(t *testing.T, response *httptest.ResponseRecorder, status in
 	if body.Code != code {
 		t.Fatalf("API error code = %q, want %q", body.Code, code)
 	}
+}
+
+func waitResidentialJob(t *testing.T, handler http.Handler, id, cookie, csrf string) []byte {
+	t.Helper()
+	for attempt := 0; attempt < 500; attempt++ {
+		response := performJSON(handler, http.MethodGet,
+			"/api/v1/residential-nodes/jobs/"+id, nil, cookie, csrf)
+		if response.Code != http.StatusOK {
+			t.Fatalf("residential job %q status = %d body=%s", id, response.Code, response.Body.String())
+		}
+		body := append([]byte(nil), response.Body.Bytes()...)
+		var job struct {
+			Status  string `json:"status"`
+			Message string `json:"message"`
+			Error   *struct {
+				Code    string `json:"code"`
+				Message string `json:"message"`
+			} `json:"error"`
+		}
+		if err := json.Unmarshal(body, &job); err != nil {
+			t.Fatalf("decode residential job %q: %v; body=%s", id, err, body)
+		}
+		switch job.Status {
+		case "succeeded":
+			return body
+		case "failed":
+			if job.Error != nil {
+				t.Fatalf("residential job %q failed: %s (%s)", id, job.Error.Message, job.Error.Code)
+			}
+			t.Fatalf("residential job %q failed: %s", id, job.Message)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("residential job %q did not complete", id)
+	return nil
 }
 
 func performJSON(handler http.Handler, method, path string, value any, cookie, csrf string) *httptest.ResponseRecorder {

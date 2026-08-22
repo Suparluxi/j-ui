@@ -1,8 +1,8 @@
 # Third-Party Notices / 第三方软件声明
 
-J-UI includes or distributes third-party software under its own license terms. The PolyForm Noncommercial license applies only to J-UI-owned code and does not replace these licenses.
+J-UI includes or distributes third-party software under its own license terms. The MIT License applies only to J-UI-owned code and does not replace these licenses.
 
-J-UI 包含或分发采用独立许可证的第三方软件。PolyForm Noncommercial 仅适用于 J-UI 自有代码，不会替代以下许可证。
+J-UI 包含或分发采用独立许可证的第三方软件。MIT License 仅适用于 J-UI 自有代码，不会替代以下许可证。
 
 ## sing-box
 
@@ -11,9 +11,9 @@ J-UI 包含或分发采用独立许可证的第三方软件。PolyForm Noncommer
 - License: GNU General Public License v3.0 or later (`GPL-3.0-or-later`)
 - Corresponding source: <https://github.com/SagerNet/sing-box/tree/v1.13.16>
 
-Release archives include the upstream sing-box license. J-UI invokes sing-box as a separate system process; sing-box is not relicensed under PolyForm Noncommercial.
+Release archives include the upstream sing-box license. J-UI invokes sing-box as a separate system process; sing-box is not relicensed under the MIT License.
 
-发布包附带 sing-box 上游许可证。J-UI 将 sing-box 作为独立系统进程调用，不会将其重新许可为 PolyForm Noncommercial。
+发布包附带 sing-box 上游许可证。J-UI 将 sing-box 作为独立系统进程调用，不会将其重新许可为 MIT License。
 
 ## Country flag font
 
