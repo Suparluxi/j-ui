@@ -54,6 +54,7 @@ declare -a managed_targets=(
   /etc/systemd/system/j-ui.service
   /etc/systemd/system/j-ui-update.service
   /etc/systemd/system/j-ui-sing-box.service
+  /etc/systemd/system/j-ui-residential@.service
   /etc/systemd/system/j-ui-certificate-renew.service
   /etc/systemd/system/j-ui-certificate-renew.timer
   /etc/systemd/system/j-ui-certificate-issue@.service
@@ -677,6 +678,7 @@ download_release_asset "checksums.txt" "${temporary_directory}/checksums.txt"
 )
 tar -xzf "${temporary_directory}/${archive}" -C "$temporary_directory"
 for required in j-ui deploy/j-ui.service deploy/j-ui-update.service deploy/j-ui-sing-box.service \
+  deploy/j-ui-residential@.service \
   deploy/j-ui-certificate-renew.service deploy/j-ui-certificate-renew.timer \
   deploy/j-ui-certificate-issue@.service deploy/j-ui.env deploy/empty-sing-box.json \
   scripts/update.sh scripts/uninstall.sh scripts/manage.sh scripts/ssl.sh scripts/argo.sh sing-box; do
@@ -931,6 +933,7 @@ install -m 0755 "${temporary_directory}/sing-box" /usr/local/lib/j-ui/sing-box
 install -m 0644 "${temporary_directory}/deploy/j-ui.service" /etc/systemd/system/j-ui.service
 install -m 0644 "${temporary_directory}/deploy/j-ui-update.service" /etc/systemd/system/j-ui-update.service
 install -m 0644 "${temporary_directory}/deploy/j-ui-sing-box.service" /etc/systemd/system/j-ui-sing-box.service
+install -m 0644 "${temporary_directory}/deploy/j-ui-residential@.service" /etc/systemd/system/j-ui-residential@.service
 install -m 0644 "${temporary_directory}/deploy/j-ui-certificate-renew.service" /etc/systemd/system/j-ui-certificate-renew.service
 install -m 0644 "${temporary_directory}/deploy/j-ui-certificate-renew.timer" /etc/systemd/system/j-ui-certificate-renew.timer
 install -m 0644 "${temporary_directory}/deploy/j-ui-certificate-issue@.service" /etc/systemd/system/j-ui-certificate-issue@.service

@@ -442,4 +442,86 @@ describe("App bootstrap", () => {
     expect(root.querySelector(".monitor-module")?.textContent).toContain("Retrying");
     expect(settingsModal?.querySelector<HTMLInputElement>(".country-setting input")?.value).toBe("CN · China");
   });
+
+  it("keeps a VPNGate creation job alive across transient polling fetch failures", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("EventSource", FakeEventSource);
+    let jobPolls = 0;
+    const candidate = {
+      hostName: "vpn-test", ip: "198.51.100.40", score: 100, ping: 20, speed: 10000000,
+      countryLong: "Japan", countryShort: "JP", numVpnSessions: 1, hasOpenVpn: true
+    };
+    const regularNode = {
+      id: 1, name: "J-UI丨XTLS-Reality_8881", protocol: "vless_reality", listen: "0.0.0.0", port: 8881,
+      enabled: true, status: "running", settings: {}, listenerStatus: "listening", publicConnectivity: "reachable",
+      externalAddress: "198.51.100.10:8881", currentOutbound: "native"
+    };
+    const createdNode = {
+      id: 2, name: "J-UI丨S-JP丨XTLS-Reality_8882", protocol: "vless_reality", listen: "0.0.0.0", port: 8882,
+      enabled: true, status: "running", settings: {
+        jui_temporary_source: "vpngate", jui_temporary_expires_at: "2099-01-01T00:00:00Z"
+      }, listenerStatus: "listening", publicConnectivity: "reachable", externalAddress: "198.51.100.10:8882",
+      currentOutbound: "vpn-test", outboundId: 1
+    };
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input);
+      if (path === "/api/v1/settings/language") return json({ language: "zh-CN" });
+      if (path === "/api/v1/auth/session") {
+        return json({ username: "admin", csrfToken: "csrf", setupRequired: false, adminPath: "manage-test", defaultCredentials: false });
+      }
+      if (path === "/api/v1/vpngate/regions") return json([{ code: "JP", name: "Japan", nameZh: "日本", count: 1, availableCount: 1 }]);
+      if (path.startsWith("/api/v1/vpngate/nodes?")) return json([candidate]);
+      if (path === "/api/v1/nodes") return json([regularNode, createdNode]);
+      if (path === "/api/v1/outbounds") return json([{ id: 1, name: "vpn-test", type: "socks5", server: "10.254.1.2", port: 1080,
+        enabled: true, hasCredential: true, status: "running", observedIp: "198.51.100.40", managedKind: "vpngate" }]);
+      if (path === "/api/v1/system/status") return json({
+        cpuPercent: 1, memory: { usedBytes: 1, totalBytes: 2, percent: 50 }, disk: { usedBytes: 1, totalBytes: 2, percent: 50 },
+        network: { uploadBytesPerSecond: 0, downloadBytesPerSecond: 0, uploadTotalBytes: 1, downloadTotalBytes: 1 },
+        uptimeSeconds: 1, load: [0, 0, 0],
+        services: { jui: "active", singBox: "active", openVPN: "active", singBoxVersion: "1.13.16", configVersion: 1 },
+        nodes: { total: 2, enabled: 2, faulted: 0 }, exits: { total: 1, running: 1, faulted: 0 }, events: []
+      });
+      if (path === "/api/v1/subscription") return json({ token: "token", base64Path: "/sub/token?format=base64",
+        v2rayNPath: "/sub/token?format=v2rayn", shadowrocketPath: "/sub/token?format=shadowrocket",
+        clashPath: "/sub/token?format=clash", singBoxPath: "/sub/token?format=singbox" });
+      if (path === "/api/v1/system/info") return json({ hostname: "test", os: "Linux", kernel: "test", arch: "amd64", ipv4: "198.51.100.10", ipv6: "", countryCode: "JP", mockMode: true });
+      if (path === "/api/v1/settings/public-host") return json({ publicHost: "198.51.100.10" });
+      if (path === "/api/v1/settings/server-name") return json({ serverName: "J-UI" });
+      if (path === "/api/v1/settings/country") return json({ countryCode: "JP" });
+      if (path === "/api/v1/settings/node-start-port") return json({ startPort: 8881, nextPort: 8883 });
+      if (path === "/api/v1/settings/protocol-prerequisites") return json({
+        httpsIngressEnabled: false, httpsIngressDomain: "", cloudflareTunnelEnabled: false, cloudflareTunnelDomain: "",
+        certificateMode: "auto", certificateReady: true
+      });
+      if (path === "/api/v1/residential-nodes/vpngate" && init?.method === "POST") {
+        return json({ id: "job-test", status: "queued", message: "住宅节点创建任务已排队", createdAt: "2026-08-22T00:00:00Z", updatedAt: "2026-08-22T00:00:00Z" }, 202);
+      }
+      if (path === "/api/v1/residential-nodes/jobs/job-test") {
+        jobPolls += 1;
+        if (jobPolls <= 5) throw new TypeError("Failed to fetch");
+        return json({ id: "job-test", status: "succeeded", message: "住宅节点创建完成", createdAt: "2026-08-22T00:00:00Z", updatedAt: "2026-08-22T00:00:20Z", node: createdNode, uri: "vless://test", source: "vpngate", country: "JP", exitId: 1 });
+      }
+      throw new Error(`unexpected fetch: ${path}`);
+    }));
+
+    const root = document.createElement("div");
+    document.body.append(root);
+    mountedApp = createApp(App);
+    mountedApp.mount(root);
+    await settle();
+
+    root.querySelector<HTMLFormElement>(".residential-builder")?.dispatchEvent(new Event("submit", { bubbles: true }));
+    await settle();
+    await vi.advanceTimersByTimeAsync(4000);
+    await nextTick();
+    expect(jobPolls).toBe(5);
+    expect(root.querySelector(".residential-form-error")).toBeNull();
+    expect(root.querySelector(".residential-job-progress")?.textContent).toContain("等待 VPS");
+
+    await vi.advanceTimersByTimeAsync(1000);
+    await settle();
+    expect(jobPolls).toBe(6);
+    expect(root.querySelector(".residential-form-error")).toBeNull();
+    expect(root.querySelector(".alert.success")?.textContent).toContain("住宅节点已创建");
+  });
 });

@@ -84,6 +84,11 @@ cleanup_command() {
   echo "Cleanup failed: $*${output:+: ${output}}" >&2
   cleanup_failed=1
 }
+while IFS= read -r residential_unit; do
+  [[ "$residential_unit" == j-ui-residential@*.service ]] || continue
+  cleanup_command systemctl disable --now "$residential_unit"
+  systemctl reset-failed "$residential_unit" 2>/dev/null || true
+done < <(systemctl list-units --all --plain --no-legend 'j-ui-residential@*.service' 2>/dev/null | awk '{print $1}')
 for slot in 1 2 3 4 5; do
   cleanup_command systemctl stop "jui-vpngate-${slot}-bridge.service"
   cleanup_command systemctl stop "jui-vpngate-${slot}-openvpn.service"
@@ -114,11 +119,12 @@ if [[ -x /usr/local/bin/j-ui ]]; then
   /usr/local/bin/j-ui close-acme-firewall 2>/dev/null || true
 fi
 systemctl disable j-ui.service j-ui-sing-box.service j-ui-certificate-renew.timer 2>/dev/null || true
-rm -f /etc/systemd/system/j-ui.service /etc/systemd/system/j-ui-update.service /etc/systemd/system/j-ui-sing-box.service /etc/systemd/system/j-ui-certificate-renew.service /etc/systemd/system/j-ui-certificate-renew.timer /etc/systemd/system/j-ui-certificate-issue@.service
+rm -f /etc/systemd/system/j-ui.service /etc/systemd/system/j-ui-update.service /etc/systemd/system/j-ui-sing-box.service /etc/systemd/system/j-ui-residential@.service /etc/systemd/system/j-ui-certificate-renew.service /etc/systemd/system/j-ui-certificate-renew.timer /etc/systemd/system/j-ui-certificate-issue@.service
 rm -rf -- \
   /etc/systemd/system/j-ui.service.d \
   /etc/systemd/system/j-ui-update.service.d \
-  /etc/systemd/system/j-ui-sing-box.service.d
+  /etc/systemd/system/j-ui-sing-box.service.d \
+  /etc/systemd/system/j-ui-residential@.service.d
 rm -f \
   /usr/local/bin/j-ui \
   /usr/local/bin/J-UI \

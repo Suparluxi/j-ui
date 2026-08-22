@@ -470,13 +470,18 @@ async function loadOutbounds() {
 }
 
 async function loadVPNGate() {
-  const [regions, candidates] = await Promise.all([
+  const [regionsResult, candidatesResult] = await Promise.allSettled([
     request<VPNGateRegion[]>('/api/v1/vpngate/regions'),
     request<VPNGateCandidate[]>(`/api/v1/vpngate/nodes?country=${encodeURIComponent(residentialForm.country)}`)
   ]);
-  vpnGateRegions.value = regions;
-  vpnGateCandidates.value = candidates;
-  selectFirstAvailableCandidate();
+  if (regionsResult.status === "fulfilled") vpnGateRegions.value = regionsResult.value;
+  if (candidatesResult.status === "fulfilled") {
+    vpnGateCandidates.value = candidatesResult.value;
+    selectFirstAvailableCandidate();
+  }
+  if (regionsResult.status === "rejected" && candidatesResult.status === "rejected") {
+    throw candidatesResult.reason;
+  }
 }
 
 async function loadVPNGateCandidates() {
@@ -498,6 +503,7 @@ function changeManualProxyType(value: string | number) {
 }
 
 async function changeVPNGateCountry() {
+  residentialError.value = "";
   residentialForm.candidateHostName = "";
   vpnGateInspection.value = null;
   vpnGateInspectionCollapsed.value = false;
@@ -505,6 +511,7 @@ async function changeVPNGateCountry() {
 }
 
 async function refreshVPNGate() {
+  residentialError.value = "";
   vpnGateInspection.value = null;
   vpnGateInspectionCollapsed.value = false;
   vpnGateRefreshing.value = true;
@@ -523,6 +530,7 @@ async function refreshVPNGate() {
 async function inspectVPNGateIP() {
   const candidate = selectedVPNGateCandidate.value;
   if (!candidate) return;
+  residentialError.value = "";
   vpnGateInspecting.value = true;
   try {
     await act(async () => {
@@ -569,7 +577,21 @@ async function waitForResidentialNodeJob(jobId: string): Promise<ResidentialNode
       const apiError = caught as Partial<ApiError>;
       if (apiError.code && apiError.message) throw caught;
       networkFailures += 1;
-      if (networkFailures >= 5) throw caught;
+      if (networkFailures >= 5) {
+        // Provisioning is deliberately detached from the browser request. A
+        // tunnel setup can briefly interrupt the management connection, but
+        // the VPS job must keep polling until it reports a terminal state.
+        if (residentialJob.value) {
+          residentialJob.value = {
+            ...residentialJob.value,
+            status: "running",
+            message: tr(
+              "管理端连接暂时中断，正在等待 VPS 后台任务完成…",
+              "The management connection is temporarily interrupted; waiting for the VPS task to finish…"
+            )
+          };
+        }
+      }
     }
     await new Promise<void>(resolve => window.setTimeout(resolve, 1000));
   }
@@ -610,11 +632,27 @@ async function createResidentialNode() {
         method: "POST", body: JSON.stringify(manualPayload)
       });
     }
-    await Promise.all([loadNodes(), loadVPNGate(), loadOutbounds(), loadNodePortSettings()]);
-    notice.value = tr("住宅节点已创建；可直接复制节点链接导入客户端", "Residential node created; copy its link directly into your client");
+    const refreshResults = await Promise.allSettled([
+      loadNodes(), loadVPNGate(), loadOutbounds(), loadNodePortSettings()
+    ]);
+    if (refreshResults.some(result => result.status === "rejected")) {
+      notice.value = tr(
+        "住宅节点已创建，但部分列表刷新失败；请点击重试加载查看最新状态",
+        "The residential node was created, but some lists could not refresh; use Retry loading to check the latest state"
+      );
+    } else {
+      notice.value = tr("住宅节点已创建；可直接复制节点链接导入客户端", "Residential node created; copy its link directly into your client");
+    }
   } catch (caught) {
-    const apiError = caught as ApiError;
-    residentialError.value = apiError.message ?? tr("住宅节点创建失败", "Failed to create residential node");
+    if (isNetworkFetchError(caught)) {
+      residentialError.value = tr(
+        "管理端连接暂时中断；任务可能已经提交到 VPS 后台，请刷新页面确认，避免立即重复创建。",
+        "The management connection was interrupted. The task may already be running on the VPS; refresh to verify before trying again."
+      );
+    } else {
+      const apiError = caught as ApiError;
+      residentialError.value = apiError.message ?? tr("住宅节点创建失败", "Failed to create residential node");
+    }
   } finally {
     residentialCreating.value = false;
   }
@@ -1093,9 +1131,25 @@ async function act(action: () => Promise<void>) {
   try {
     await action();
   } catch (caught) {
-    const apiError = caught as ApiError;
-    error.value = apiError.message ?? tr("操作失败", "Operation failed");
+    error.value = apiErrorMessage(caught, tr("操作失败", "Operation failed"));
   }
+}
+
+function isNetworkFetchError(caught: unknown): boolean {
+  const message = caught instanceof Error
+    ? caught.message
+    : String((caught as Partial<ApiError> | null)?.message ?? caught ?? "");
+  return /failed to fetch|networkerror|network request failed/i.test(message);
+}
+
+function apiErrorMessage(caught: unknown, fallback: string): string {
+  if (isNetworkFetchError(caught)) {
+    return tr(
+      "管理端连接暂时中断，请检查网络后重试；后台任务可能仍在运行。",
+      "The management connection was interrupted. Check the network and retry; a background task may still be running."
+    );
+  }
+  return (caught as Partial<ApiError> | null)?.message ?? fallback;
 }
 
 function bytes(value = 0) {
@@ -1110,6 +1164,7 @@ function speedMbps(value = 0) {
 }
 
 function clearVPNGateInspection() {
+  residentialError.value = "";
   vpnGateInspection.value = null;
   vpnGateInspectionCollapsed.value = false;
 }

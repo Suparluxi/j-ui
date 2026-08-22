@@ -29,7 +29,7 @@ import (
 	"github.com/Suparluxi/j-ui/internal/vpngate"
 )
 
-var Version = "1.1.0"
+var Version = "1.1.1"
 
 const countryLookupBaseURL = "https://ip.net.coffee/api/ip/lookup/"
 
@@ -1792,6 +1792,12 @@ func (h *Handler) frontendFile(w http.ResponseWriter, r *http.Request) {
 	if !strings.HasPrefix(r.URL.Path, prefix+"/") {
 		http.NotFound(w, r)
 		return
+	}
+	// The entry document must not be cached across an upgrade. Its hashed asset
+	// references change with each release, while the API and static assets can
+	// remain independently cacheable.
+	if strings.TrimPrefix(r.URL.Path, prefix+"/") == "index.html" || strings.HasSuffix(r.URL.Path, "/") {
+		w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
 	}
 	http.StripPrefix(prefix, http.FileServerFS(h.frontend)).ServeHTTP(w, r)
 }

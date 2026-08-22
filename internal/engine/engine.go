@@ -56,6 +56,8 @@ func (ExecRunner) Run(ctx context.Context, name string, args ...string) ([]byte,
 type System struct {
 	Binary                  string
 	ConfigPath              string
+	ServiceUnit             string
+	StartIfInactive         bool
 	Runner                  Runner
 	ListenerChecker         func(context.Context, []Listener) error
 	RollbackListenerChecker func(context.Context, []Listener) error
@@ -103,7 +105,7 @@ func (s *System) Apply(ctx context.Context, candidate []byte, listeners []Listen
 		if s.Healthy(ctx) && s.ListenersHealthy(ctx, listeners) == nil {
 			return nil
 		}
-		if output, err := runner.Run(ctx, "systemctl", "restart", serviceUnit); err != nil {
+		if output, err := runner.Run(ctx, "systemctl", "restart", s.unit()); err != nil {
 			return fmt.Errorf("restart unhealthy sing-box runtime: %w: %s", err, output)
 		}
 		if !s.Healthy(ctx) {
@@ -132,23 +134,29 @@ func (s *System) Apply(ctx context.Context, candidate []byte, listeners []Listen
 
 	// sing-box 1.13 validates the live file again on SIGHUP before replacing
 	// the running instance. The systemd reload action delivers that signal.
-	if output, err := runner.Run(commitCtx, "systemctl", "reload", serviceUnit); err != nil {
+	// Dedicated residential instances may not exist yet, so start them on
+	// their first apply instead of trying to reload a missing unit.
+	action := "reload"
+	if s.StartIfInactive && !s.Healthy(commitCtx) {
+		action = "start"
+	}
+	if output, err := runner.Run(commitCtx, "systemctl", action, s.unit()); err != nil {
 		if rollbackErr := s.rollbackSafely(ctx, previous, hadPrevious); rollbackErr != nil {
-			return fmt.Errorf("reload failed: %w: %s; rollback failed: %v", err, output, rollbackErr)
+			return fmt.Errorf("%s failed: %w: %s; rollback failed: %v", action, err, output, rollbackErr)
 		}
-		return fmt.Errorf("reload failed and was rolled back: %w: %s", err, output)
+		return fmt.Errorf("%s failed and was rolled back: %w: %s", action, err, output)
 	}
 	if err := settleReload(commitCtx); err != nil {
 		if rollbackErr := s.rollbackSafely(ctx, previous, hadPrevious); rollbackErr != nil {
-			return fmt.Errorf("wait for reload: %w; rollback failed: %v", err, rollbackErr)
+			return fmt.Errorf("wait for %s: %w; rollback failed: %v", action, err, rollbackErr)
 		}
-		return fmt.Errorf("wait for reload: %w; configuration rolled back", err)
+		return fmt.Errorf("wait for %s: %w; configuration rolled back", action, err)
 	}
 	if !s.Healthy(commitCtx) {
 		if rollbackErr := s.rollbackSafely(ctx, previous, hadPrevious); rollbackErr != nil {
-			return fmt.Errorf("sing-box unhealthy; rollback failed: %v", rollbackErr)
+			return fmt.Errorf("sing-box unhealthy after %s; rollback failed: %v", action, rollbackErr)
 		}
-		return errors.New("sing-box unhealthy after reload; configuration rolled back")
+		return fmt.Errorf("sing-box unhealthy after %s; configuration rolled back", action)
 	}
 	checkListeners := s.ListenerChecker
 	if checkListeners == nil {
@@ -156,9 +164,9 @@ func (s *System) Apply(ctx context.Context, candidate []byte, listeners []Listen
 	}
 	if err := checkListeners(commitCtx, listeners); err != nil {
 		if rollbackErr := s.rollbackSafely(ctx, previous, hadPrevious); rollbackErr != nil {
-			return fmt.Errorf("sing-box listener health check failed: %w; rollback failed: %v", err, rollbackErr)
+			return fmt.Errorf("sing-box listener health check failed after %s: %w; rollback failed: %v", action, err, rollbackErr)
 		}
-		return fmt.Errorf("sing-box listener health check failed: %w; configuration rolled back", err)
+		return fmt.Errorf("sing-box listener health check failed after %s: %w; configuration rolled back", action, err)
 	}
 	return nil
 }
@@ -191,9 +199,13 @@ func (s *System) rollback(ctx context.Context, previous []byte, hadPrevious bool
 	} else if err := os.Remove(s.ConfigPath); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	if output, err := s.runner().Run(ctx, "systemctl", "reload", serviceUnit); err != nil {
+	if !hadPrevious && s.StartIfInactive {
+		_, _ = s.runner().Run(ctx, "systemctl", "stop", s.unit())
+		return nil
+	}
+	if output, err := s.runner().Run(ctx, "systemctl", "reload", s.unit()); err != nil {
 		reloadErr := fmt.Errorf("reload previous configuration: %w: %s", err, output)
-		if restartOutput, restartErr := s.runner().Run(ctx, "systemctl", "restart", serviceUnit); restartErr != nil {
+		if restartOutput, restartErr := s.runner().Run(ctx, "systemctl", "restart", s.unit()); restartErr != nil {
 			return fmt.Errorf("%w; restart fallback: %v: %s", reloadErr, restartErr, restartOutput)
 		}
 	}
@@ -257,7 +269,7 @@ func atomicWrite(path string, content []byte) error {
 }
 
 func (s *System) Healthy(ctx context.Context) bool {
-	_, err := s.runner().Run(ctx, "systemctl", "is-active", "--quiet", serviceUnit)
+	_, err := s.runner().Run(ctx, "systemctl", "is-active", "--quiet", s.unit())
 	return err == nil
 }
 
@@ -328,7 +340,7 @@ func (s *System) ListenerStatuses(ctx context.Context, listeners []Listener) ([]
 	if len(listeners) == 0 {
 		return statuses, nil
 	}
-	pidOutput, err := s.runner().Run(ctx, "systemctl", "show", "--property=MainPID", "--value", serviceUnit)
+	pidOutput, err := s.runner().Run(ctx, "systemctl", "show", "--property=MainPID", "--value", s.unit())
 	if err != nil {
 		return nil, fmt.Errorf("resolve sing-box MainPID: %w: %s", err, pidOutput)
 	}
@@ -382,6 +394,13 @@ func (s *System) runner() Runner {
 		return s.Runner
 	}
 	return ExecRunner{}
+}
+
+func (s *System) unit() string {
+	if strings.TrimSpace(s.ServiceUnit) != "" {
+		return s.ServiceUnit
+	}
+	return serviceUnit
 }
 
 func socketPort(address string) int {
@@ -446,7 +465,7 @@ func listenersFromConfiguration(config []byte, present bool) ([]Listener, error)
 	for _, inbound := range document.Inbounds {
 		network := ""
 		switch inbound.Type {
-		case "vless", "trojan", "socks":
+		case "vless", "trojan", "socks", "anytls":
 			network = "tcp"
 		case "hysteria2", "tuic":
 			network = "udp"

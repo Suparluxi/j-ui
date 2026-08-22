@@ -96,6 +96,7 @@ jobs:
               deploy/j-ui-certificate-issue@.service \
               deploy/j-ui-certificate-renew.service \
               deploy/j-ui-certificate-renew.timer \
+              deploy/j-ui-residential@.service \
               deploy/j-ui-sing-box.service \
               deploy/j-ui-update.service \
               deploy/j-ui.env \
@@ -118,6 +119,7 @@ jobs:
             test -x "$smoke_directory/sing-box"
             test -r "$smoke_directory/deploy/j-ui.service"
             test -r "$smoke_directory/deploy/j-ui-sing-box.service"
+            test -r "$smoke_directory/deploy/j-ui-residential@.service"
             test -x "$smoke_directory/scripts/install.sh"
             test -x "$smoke_directory/scripts/manage.sh"
             test -x "$smoke_directory/scripts/argo.sh"

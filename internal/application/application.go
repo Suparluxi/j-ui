@@ -133,6 +133,11 @@ func open(ctx context.Context, cfg config.Config, allowBootstrap bool) (*Applica
 	}
 	nodeService := nodeservice.NewService(store, proxyEngine, firewallManager)
 	nodeService.ConfigureAutomaticCertificates(filepath.Join(cfg.ConfigDir, "certificates"), cfg.MockEngine)
+	if !cfg.MockEngine {
+		nodeService.ConfigureTemporaryRuntime(nodeservice.NewSystemTemporaryRuntime(
+			cfg.SingBoxBinary, filepath.Join(cfg.ConfigDir, "residential"),
+		))
+	}
 	if cfg.MockEngine {
 		nodeService.ConfigureOutboundChecker(nodeservice.OutboundCheckFunc(
 			func(context.Context, model.Outbound) (exitcheck.Result, error) {

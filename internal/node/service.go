@@ -88,6 +88,7 @@ type Service struct {
 	store            *database.Store
 	engine           engine.Engine
 	firewall         firewall.Manager
+	temporaryRuntime TemporaryRuntime
 	firewallVerified bool
 	operationTimeout time.Duration
 	certificateDir   string
@@ -117,6 +118,13 @@ func (s *Service) ConfigureOutboundChecker(checker OutboundChecker) {
 	if checker != nil {
 		s.outboundChecker = checker
 	}
+}
+
+// ConfigureTemporaryRuntime moves residential nodes out of the main
+// sing-box process. A nil runtime keeps the in-process behavior used by mock
+// mode and older tests.
+func (s *Service) ConfigureTemporaryRuntime(runtime TemporaryRuntime) {
+	s.temporaryRuntime = runtime
 }
 
 // VerifyAutomaticCertificate confirms that a TLS node can load a certificate for serverName.
@@ -583,7 +591,7 @@ func (s *Service) List(ctx context.Context) ([]model.Node, error) {
 	if engineHealthy && canBulk {
 		for index := range nodes {
 			offsets[index] = len(allListeners)
-			if nodes[index].Enabled {
+			if nodes[index].Enabled && !s.usesTemporaryRuntime(nodes[index]) {
 				allListeners = append(allListeners, listenersForNode(nodes[index])...)
 			}
 		}
@@ -598,7 +606,12 @@ func (s *Service) List(ctx context.Context) ([]model.Node, error) {
 	}
 	for index := range nodes {
 		healthy := engineHealthy
-		if nodes[index].Enabled && healthy {
+		if s.usesTemporaryRuntime(nodes[index]) {
+			healthy = s.temporaryRuntime.Healthy(ctx, nodes[index].ID)
+			if nodes[index].Enabled && healthy {
+				healthy = s.temporaryRuntime.ListenersHealthy(ctx, nodes[index]) == nil
+			}
+		} else if nodes[index].Enabled && healthy {
 			if canBulk {
 				healthy = listenerStatuses != nil &&
 					allHealthy(listenerStatuses[offsets[index]:offsets[index+1]])
@@ -627,7 +640,12 @@ func (s *Service) Get(ctx context.Context, id int64) (model.Node, error) {
 		return node, err
 	}
 	healthy := s.engine.Healthy(ctx)
-	if node.Enabled && healthy {
+	if s.usesTemporaryRuntime(node) {
+		healthy = s.temporaryRuntime.Healthy(ctx, node.ID)
+		if node.Enabled && healthy {
+			healthy = s.temporaryRuntime.ListenersHealthy(ctx, node) == nil
+		}
+	} else if node.Enabled && healthy {
 		healthy = s.engine.ListenersHealthy(ctx, listenersForNode(node)) == nil
 	}
 	node.Status = liveStatus(node.Enabled, healthy)
@@ -1200,25 +1218,39 @@ func (s *Service) reconcile(ctx context.Context) error {
 	if err := s.syncFirewall(ctx, nodes); err != nil {
 		return err
 	}
+	outbounds, err := s.store.ListOutbounds(ctx)
+	if err != nil {
+		return err
+	}
+	availableOutbounds := make(map[int64]model.Outbound, len(outbounds))
+	for _, outbound := range outbounds {
+		availableOutbounds[outbound.ID] = outbound
+	}
 	items := make([]singbox.NodeWithClients, 0, len(nodes))
+	temporaryItems := make([]TemporaryNode, 0)
 	for _, node := range nodes {
 		clients, err := s.store.Clients(ctx, node.ID)
 		if err != nil {
 			return err
 		}
+		if s.usesTemporaryRuntime(node) {
+			item := TemporaryNode{Node: node, Clients: clients}
+			if node.OutboundID != nil {
+				item.Outbound, _ = availableOutbounds[*node.OutboundID]
+			}
+			temporaryItems = append(temporaryItems, item)
+			continue
+		}
 		items = append(items, singbox.NodeWithClients{Node: node, Clients: clients})
-	}
-	outbounds, err := s.store.ListOutbounds(ctx)
-	if err != nil {
-		return err
 	}
 	config, err := singbox.GenerateWithOutbounds(items, outbounds)
 	if err != nil {
 		_ = s.store.RecordEvent(ctx, "error", "config_generation_failed", "节点配置生成失败，现有配置保持不变")
 		return err
 	}
-	listeners := make([]engine.Listener, 0, len(nodes))
-	for _, node := range nodes {
+	listeners := make([]engine.Listener, 0, len(items))
+	for _, item := range items {
+		node := item.Node
 		if !node.Enabled {
 			continue
 		}
@@ -1228,12 +1260,23 @@ func (s *Service) reconcile(ctx context.Context) error {
 		_ = s.store.RecordEvent(ctx, "error", "config_apply_failed", "sing-box 配置部署失败，上一可用版本已保留")
 		return err
 	}
+	if s.temporaryRuntime != nil {
+		if err := s.temporaryRuntime.Reconcile(ctx, temporaryItems); err != nil {
+			_ = s.store.RecordEvent(ctx, "error", "temporary_config_apply_failed",
+				"住宅节点独立 sing-box 配置部署失败，主节点配置保持不变")
+			return err
+		}
+	}
 	if err := s.store.SaveConfigVersion(ctx, config, true); err != nil {
 		_ = s.store.RecordEvent(ctx, "error", "config_version_failed", "配置版本写入失败，调用方将执行状态回滚")
 		return err
 	}
 	_ = s.store.RecordEvent(ctx, "info", "config_applied", "sing-box 配置已校验、重启并通过端口健康检查")
 	return nil
+}
+
+func (s *Service) usesTemporaryRuntime(node model.Node) bool {
+	return s.temporaryRuntime != nil && TemporarySource(node) != ""
 }
 
 func (s *Service) syncFirewall(ctx context.Context, nodes []model.Node) error {

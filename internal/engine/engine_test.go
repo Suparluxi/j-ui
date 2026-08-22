@@ -62,6 +62,29 @@ type bulkStatusRunner struct {
 
 type samePortStatusRunner struct{}
 
+type startIfInactiveRunner struct {
+	calls  []string
+	active bool
+}
+
+func (r *startIfInactiveRunner) Run(_ context.Context, name string, args ...string) ([]byte, error) {
+	if name != "systemctl" || len(args) == 0 {
+		return nil, nil
+	}
+	r.calls = append(r.calls, strings.Join(args, " "))
+	switch args[0] {
+	case "is-active":
+		if !r.active {
+			return nil, errors.New("inactive")
+		}
+	case "start":
+		r.active = true
+	case "reload":
+		return nil, errors.New("reload should not be used for an inactive dedicated unit")
+	}
+	return nil, nil
+}
+
 func (samePortStatusRunner) Run(_ context.Context, name string, args ...string) ([]byte, error) {
 	if name == "systemctl" && len(args) > 0 && args[0] == "show" {
 		return []byte("42\n"), nil
@@ -234,6 +257,29 @@ func TestApplyIdenticalConfigRestartsUnhealthyRuntime(t *testing.T) {
 	}
 	if runner.restartCalls != 1 {
 		t.Fatalf("restart calls = %d, want 1", runner.restartCalls)
+	}
+}
+
+func TestDedicatedRuntimeStartsBeforeReloadWhenInactive(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "residential.json")
+	runner := &startIfInactiveRunner{}
+	system := &System{
+		Binary:          "sing-box",
+		ConfigPath:      path,
+		ServiceUnit:     "j-ui-residential@7.service",
+		StartIfInactive: true,
+		Runner:          runner,
+		ListenerChecker: func(context.Context, []Listener) error { return nil },
+	}
+	if err := system.Apply(context.Background(), []byte(`{"inbounds":[]}`), nil); err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.Join(runner.calls, "|")
+	if !strings.Contains(joined, "start j-ui-residential@7.service") {
+		t.Fatalf("dedicated unit was not started: %s", joined)
+	}
+	if strings.Contains(joined, "reload j-ui-residential@7.service") {
+		t.Fatalf("dedicated inactive unit was reloaded: %s", joined)
 	}
 }
 
