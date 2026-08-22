@@ -45,6 +45,35 @@ func TestUpdateHealthCheckSupportsLoopbackHTTPS(t *testing.T) {
 	}
 }
 
+func TestUpdateMigratesResidentialRuntimeForLegacyUpgrades(t *testing.T) {
+	updateScript, err := os.ReadFile("update.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	serviceUnit, err := os.ReadFile(filepath.Join("..", "deploy", "j-ui.service"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{
+		`if [[ "${1:-}" == "--ensure-residential-runtime" ]]; then`,
+		`grep -Fq 'Description=J-UI isolated residential sing-box node %i'`,
+		`grep -Fq 'ExecStart=/usr/local/lib/j-ui/sing-box run -c /etc/j-ui/residential/%i.json'`,
+		`systemctl daemon-reload`,
+	} {
+		if !bytes.Contains(updateScript, []byte(expected)) {
+			t.Fatalf("legacy upgrade migration is missing %q", expected)
+		}
+	}
+	for _, expected := range []string{
+		`ExecStartPre=/usr/local/lib/j-ui/update.sh --ensure-residential-runtime`,
+		`ReadWritePaths=/etc/j-ui /var/lib/j-ui /etc/systemd/system`,
+	} {
+		if !bytes.Contains(serviceUnit, []byte(expected)) {
+			t.Fatalf("J-UI service cannot run legacy upgrade migration %q", expected)
+		}
+	}
+}
+
 func testUpdateRollback(t *testing.T, failRollbackCopy bool) {
 	t.Helper()
 	if runtime.GOARCH != "amd64" {

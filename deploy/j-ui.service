@@ -9,6 +9,7 @@ User=root
 Group=root
 EnvironmentFile=-/etc/j-ui/j-ui.env
 Environment=JUI_SERVICE_MODE=server
+ExecStartPre=/usr/local/lib/j-ui/update.sh --ensure-residential-runtime
 ExecStart=/usr/local/bin/j-ui
 Restart=on-failure
 RestartSec=3s
@@ -17,7 +18,7 @@ PrivateTmp=true
 PrivateDevices=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/etc/j-ui /var/lib/j-ui -/etc/ufw -/etc/firewalld -/var/lib/firewalld
+ReadWritePaths=/etc/j-ui /var/lib/j-ui /etc/systemd/system -/etc/ufw -/etc/firewalld -/var/lib/firewalld
 NoNewPrivileges=true
 ProtectKernelTunables=true
 ProtectKernelModules=true

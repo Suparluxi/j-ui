@@ -54,6 +54,60 @@ download_release_asset() {
     "$asset_url" -o "$destination"
 }
 
+ensure_residential_unit() {
+  local target="/etc/systemd/system/j-ui-residential@.service"
+  if [[ -r "$target" ]] &&
+    grep -Fq 'Description=J-UI isolated residential sing-box node %i' "$target" &&
+    grep -Fq 'ExecStart=/usr/local/lib/j-ui/sing-box run -c /etc/j-ui/residential/%i.json' "$target"; then
+    return 0
+  fi
+
+  local temporary_target="${target}.jui-$$"
+  cat > "$temporary_target" <<'UNIT'
+[Unit]
+Description=J-UI isolated residential sing-box node %i
+After=network-online.target j-ui.service
+Wants=network-online.target
+PartOf=j-ui.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/local/lib/j-ui/sing-box run -c /etc/j-ui/residential/%i.json
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=2s
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+NoNewPrivileges=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+SystemCallArchitectures=native
+LimitNOFILE=1048576
+TasksMax=128
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+  chmod 0644 "$temporary_target"
+  if ! mv -f -- "$temporary_target" "$target"; then
+    rm -f -- "$temporary_target"
+    return 1
+  fi
+  systemctl daemon-reload
+}
+
 rollback_update() {
   rollback_attempted=1
   rollback_failed=0
@@ -157,6 +211,10 @@ trap cleanup EXIT
 if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
   echo "Run this updater as root." >&2
   exit 1
+fi
+if [[ "${1:-}" == "--ensure-residential-runtime" ]]; then
+  ensure_residential_unit
+  exit 0
 fi
 if [[ ! "$repository" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
   echo "Invalid JUI_GITHUB_REPOSITORY." >&2
@@ -292,6 +350,13 @@ install -m 0755 "${temporary_directory}/scripts/uninstall.sh" /usr/local/lib/j-u
 install -m 0755 "${temporary_directory}/scripts/manage.sh" /usr/local/lib/j-ui/manage.sh
 install -m 0755 "${temporary_directory}/scripts/ssl.sh" /usr/local/lib/j-ui/ssl.sh
 install -m 0755 "${temporary_directory}/scripts/argo.sh" /usr/local/lib/j-ui/argo.sh
+if ! grep -Fq 'Description=J-UI isolated residential sing-box node %i' \
+  /etc/systemd/system/j-ui-residential@.service ||
+  ! grep -Fq 'ExecStart=/usr/local/lib/j-ui/sing-box run -c /etc/j-ui/residential/%i.json' \
+  /etc/systemd/system/j-ui-residential@.service; then
+  echo "Installed residential runtime unit failed validation." >&2
+  exit 1
+fi
 ln -sfn /usr/local/bin/j-ui /usr/local/bin/J-UI
 rm -f \
   /usr/local/bin/jui \

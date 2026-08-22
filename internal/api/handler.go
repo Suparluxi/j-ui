@@ -29,7 +29,7 @@ import (
 	"github.com/Suparluxi/j-ui/internal/vpngate"
 )
 
-var Version = "1.1.1"
+var Version = "1.1.2"
 
 const countryLookupBaseURL = "https://ip.net.coffee/api/ip/lookup/"
 
