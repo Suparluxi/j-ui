@@ -7,9 +7,9 @@ J-UI 包含或分发采用独立许可证的第三方软件。MIT License 仅适
 ## sing-box
 
 - Project: <https://github.com/SagerNet/sing-box>
-- Bundled version: `1.13.16`
+- Bundled version: `1.14.0`
 - License: GNU General Public License v3.0 or later (`GPL-3.0-or-later`)
-- Corresponding source: <https://github.com/SagerNet/sing-box/tree/v1.13.16>
+- Corresponding source: <https://github.com/SagerNet/sing-box/tree/v1.14.0>
 
 Release archives include the upstream sing-box license. J-UI invokes sing-box as a separate system process; sing-box is not relicensed under the MIT License.
 

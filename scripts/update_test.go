@@ -33,7 +33,7 @@ func TestUpdateHealthCheckSupportsLoopbackHTTPS(t *testing.T) {
 		t.Fatal("updater health check must allow the public certificate on its loopback-only probe")
 	}
 	for _, expected := range []string{
-		`readonly singbox_version="1.13.16"`,
+		`readonly singbox_version="1.14.0"`,
 		`"${temporary_directory}/sing-box" check -c /etc/j-ui/sing-box.json`,
 		`install -m 0755 "${temporary_directory}/sing-box" /usr/local/lib/j-ui/sing-box`,
 		`/usr/local/lib/j-ui/sing-box`,
@@ -179,7 +179,7 @@ esac
 
 	release := filepath.Join(root, "release")
 	writeFixtureFile(t, filepath.Join(release, "j-ui"), "#!/bin/sh\nexit 0\n", 0o755)
-	writeFixtureFile(t, filepath.Join(release, "sing-box"), "#!/bin/sh\nif [ \"${1:-}\" = version ]; then echo 'sing-box version 1.13.16'; fi\nexit 0\n", 0o755)
+	writeFixtureFile(t, filepath.Join(release, "sing-box"), "#!/bin/sh\nif [ \"${1:-}\" = version ]; then echo 'sing-box version 1.14.0'; fi\nexit 0\n", 0o755)
 	for _, path := range []string{
 		"deploy/j-ui.service", "deploy/j-ui-update.service", "deploy/j-ui-sing-box.service",
 		"deploy/j-ui-residential@.service",

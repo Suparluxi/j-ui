@@ -285,10 +285,10 @@ func TestInfoWorksBeforeInitialization(t *testing.T) {
 
 func TestInstalledSingBoxVersion(t *testing.T) {
 	binary := filepath.Join(t.TempDir(), "sing-box")
-	if err := os.WriteFile(binary, []byte("#!/bin/sh\nprintf 'sing-box version 1.13.16\\n'\n"), 0o700); err != nil {
+	if err := os.WriteFile(binary, []byte("#!/bin/sh\nprintf 'sing-box version 1.14.0\\n'\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if got := installedSingBoxVersion(binary); got != "1.13.16" {
+	if got := installedSingBoxVersion(binary); got != "1.14.0" {
 		t.Fatalf("installedSingBoxVersion() = %q", got)
 	}
 	if got := installedSingBoxVersion(filepath.Join(t.TempDir(), "missing")); got != "unavailable" {

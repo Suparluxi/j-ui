@@ -114,7 +114,7 @@ describe("App bootstrap", () => {
             uploadTotalBytes: 2147483648, downloadTotalBytes: 1073741824
           },
           uptimeSeconds: 1, load: [0, 0, 0],
-          services: { jui: "active", singBox: "active", openVPN: "inactive", singBoxVersion: "1.13.16", configVersion: 1 },
+          services: { jui: "active", singBox: "active", openVPN: "inactive", singBoxVersion: "1.14.0", configVersion: 1 },
           nodes: { total: 0, enabled: 0, faulted: 0 },
           exits: { total: 0, running: 0, faulted: 0 }, events: []
         });
@@ -176,7 +176,7 @@ describe("App bootstrap", () => {
     expect(root.querySelector(".alert.error")?.textContent).toContain("节点加载失败");
     expect(root.querySelector(".alert.error button")?.textContent).toContain("重试加载");
     expect(root.querySelector(".default-password-warning")?.textContent).toContain("当前密码为默认密码，请及时修改");
-    expect(root.textContent).toContain("1.13.16");
+    expect(root.textContent).toContain("1.14.0");
     expect(root.querySelector("#system-status-section h2")?.textContent).toBe("系统状态");
     expect(root.textContent).toContain("一键创建常用节点");
     expect(root.textContent).toContain("自定义节点");
@@ -478,7 +478,7 @@ describe("App bootstrap", () => {
         cpuPercent: 1, memory: { usedBytes: 1, totalBytes: 2, percent: 50 }, disk: { usedBytes: 1, totalBytes: 2, percent: 50 },
         network: { uploadBytesPerSecond: 0, downloadBytesPerSecond: 0, uploadTotalBytes: 1, downloadTotalBytes: 1 },
         uptimeSeconds: 1, load: [0, 0, 0],
-        services: { jui: "active", singBox: "active", openVPN: "active", singBoxVersion: "1.13.16", configVersion: 1 },
+        services: { jui: "active", singBox: "active", openVPN: "active", singBoxVersion: "1.14.0", configVersion: 1 },
         nodes: { total: 2, enabled: 2, faulted: 0 }, exits: { total: 1, running: 1, faulted: 0 }, events: []
       });
       if (path === "/api/v1/subscription") return json({ token: "token", base64Path: "/sub/token?format=base64",

@@ -27,7 +27,7 @@ func TestInstallContinuesRollbackAndPreservesRecoveryFiles(t *testing.T) {
 	}
 	release := filepath.Join(root, "release")
 	writeFixtureFile(t, filepath.Join(release, "j-ui"), "#!/bin/sh\nexit 0\n", 0o755)
-	writeFixtureFile(t, filepath.Join(release, "sing-box"), "#!/bin/sh\nif [ \"${1:-}\" = version ]; then echo 'sing-box version 1.13.16'; fi\nexit 0\n", 0o755)
+	writeFixtureFile(t, filepath.Join(release, "sing-box"), "#!/bin/sh\nif [ \"${1:-}\" = version ]; then echo 'sing-box version 1.14.0'; fi\nexit 0\n", 0o755)
 	for _, path := range []string{
 		"deploy/j-ui.service", "deploy/j-ui-update.service", "deploy/j-ui-sing-box.service",
 		"deploy/j-ui-residential@.service",
@@ -234,7 +234,7 @@ func TestInstallConfiguresNodeStartPort(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, expected := range []string{
-		`readonly singbox_version="1.13.16"`,
+		`readonly singbox_version="1.14.0"`,
 		`install -m 0755 "${temporary_directory}/sing-box" /usr/local/lib/j-ui/sing-box`,
 		`confirm_port) printf 'The current node start port is %s. Use the default configuration [Y/n]: '`,
 		`ask_yes_no "$(i18n confirm_port "$node_start_port")" yes`,
