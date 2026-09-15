@@ -548,6 +548,7 @@ func clashProxy(node model.Node, client model.Client, host, name string) (map[st
 	case model.ProtocolTrojanTLS:
 		base["type"] = "trojan"
 		base["password"] = credential(client, "password")
+		base["tls"] = true
 		base["sni"] = setting(node, "server_name")
 	case model.ProtocolHysteria2:
 		base["type"] = "hysteria2"
@@ -564,6 +565,7 @@ func clashProxy(node model.Node, client model.Client, host, name string) (map[st
 	case model.ProtocolAnyTLS:
 		base["type"] = "anytls"
 		base["password"] = credential(client, "password")
+		base["tls"] = true
 		base["sni"] = setting(node, "server_name")
 	case model.ProtocolAnyTLSReality:
 		return nil, errors.New("AnyTLS with Reality is not supported by Mihomo")

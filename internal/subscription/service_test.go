@@ -2,6 +2,7 @@ package subscription
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"net/url"
 	"os"
 	"os/exec"
@@ -156,6 +157,109 @@ func TestDefaultClientNameIsNotAppended(t *testing.T) {
 	if strings.Contains(value, "default") || !strings.Contains(value, "J-UI丨TUIC_9902") ||
 		!strings.Contains(value, "udp-relay-mode: native") || !strings.Contains(value, "- h3") {
 		t.Fatalf("unexpected Mihomo output:\n%s", body)
+	}
+}
+
+func TestClashTLSProtocolsEnableTLS(t *testing.T) {
+	client := model.Client{Name: "default", Credential: map[string]any{
+		"password": "secret",
+	}}
+	for _, protocol := range []string{model.ProtocolTrojanTLS, model.ProtocolAnyTLS} {
+		body, err := Clash([]item{{
+			host: "example.com",
+			node: model.Node{
+				Name: protocol, Protocol: protocol, Port: 443,
+				Settings: map[string]any{"server_name": "example.com"},
+			},
+			client: client,
+		}})
+		if err != nil {
+			t.Fatalf("%s Clash export: %v", protocol, err)
+		}
+		if !strings.Contains(string(body), "tls: true") {
+			t.Fatalf("%s Clash export does not enable TLS:\n%s", protocol, body)
+		}
+	}
+}
+
+func TestURIProfilesPreserveTLSMarkers(t *testing.T) {
+	client := model.Client{Name: "default", Credential: map[string]any{
+		"uuid": "00000000-0000-4000-8000-000000000000", "password": "secret", "flow": "xtls-rprx-vision",
+	}}
+	for _, test := range []struct {
+		protocol string
+		security string
+		scheme   string
+	}{
+		{model.ProtocolVLESSReality, "reality", "vless"},
+		{model.ProtocolVLESSWSTLS, "tls", "vless"},
+		{model.ProtocolTrojanTLS, "tls", "trojan"},
+		{model.ProtocolAnyTLS, "", "anytls"},
+		{model.ProtocolAnyTLSReality, "reality", "anytls"},
+	} {
+		node := model.Node{Name: test.protocol, Protocol: test.protocol, Port: 443, Settings: map[string]any{
+			"server_name": "example.com", "public_key": "public", "short_id": "abcd", "ws_path": "/jui",
+		}}
+		for _, profile := range []string{"", "v2rayn", "shadowrocket"} {
+			link, err := URIForProfile(node, client, "example.com", profile)
+			if err != nil {
+				t.Fatalf("%s/%s URI: %v", profile, test.protocol, err)
+			}
+			parsed, err := url.Parse(link)
+			if err != nil {
+				t.Fatalf("%s/%s URI parse: %v", profile, test.protocol, err)
+			}
+			if parsed.Scheme != test.scheme || (test.security != "" && parsed.Query().Get("security") != test.security) ||
+				parsed.Query().Get("sni") != "example.com" {
+				t.Fatalf("unexpected %s/%s URI: %s", profile, test.protocol, link)
+			}
+		}
+	}
+}
+
+func TestSingBoxTLSProtocolsEnableTLS(t *testing.T) {
+	protocols := []string{
+		model.ProtocolVLESSReality, model.ProtocolVLESSH2Reality,
+		model.ProtocolVLESSGRPCReality, model.ProtocolVLESSWSTLS,
+		model.ProtocolTrojanTLS, model.ProtocolHysteria2,
+		model.ProtocolTUIC, model.ProtocolAnyTLS, model.ProtocolAnyTLSReality,
+		model.ProtocolVLESSArgo,
+	}
+	for _, protocol := range protocols {
+		body, err := SingBox([]item{{
+			host: "example.com",
+			node: model.Node{Name: protocol, Protocol: protocol, Port: 443, Settings: map[string]any{
+				"server_name": "example.com", "public_key": "public", "short_id": "abcd",
+				"transport_path": "/h2", "service_name": "jui-grpc", "ws_path": "/jui",
+			}},
+			client: model.Client{Name: "default", Credential: map[string]any{
+				"uuid": "00000000-0000-4000-8000-000000000000", "password": "secret", "flow": "xtls-rprx-vision",
+			}},
+		}})
+		if err != nil {
+			t.Fatalf("%s sing-box export: %v", protocol, err)
+		}
+		var document struct {
+			Outbounds []map[string]any `json:"outbounds"`
+		}
+		if err := json.Unmarshal(body, &document); err != nil {
+			t.Fatalf("%s sing-box JSON: %v", protocol, err)
+		}
+		var nodeOutbound map[string]any
+		for _, outbound := range document.Outbounds {
+			tag, _ := outbound["tag"].(string)
+			if strings.HasPrefix(tag, "node-") {
+				nodeOutbound = outbound
+				break
+			}
+		}
+		if nodeOutbound == nil {
+			t.Fatalf("%s did not produce a node outbound", protocol)
+		}
+		tlsConfig, ok := nodeOutbound["tls"].(map[string]any)
+		if !ok || tlsConfig["enabled"] != true {
+			t.Fatalf("%s sing-box export does not enable TLS: %s", protocol, body)
+		}
 	}
 }
 
