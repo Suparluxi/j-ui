@@ -10,6 +10,7 @@ Group=root
 EnvironmentFile=-/etc/j-ui/j-ui.env
 Environment=JUI_SERVICE_MODE=server
 ExecStartPre=/usr/local/lib/j-ui/update.sh --ensure-residential-runtime
+ExecStartPre=/usr/local/bin/j-ui ensure-management-firewall
 ExecStart=/usr/local/bin/j-ui
 Restart=on-failure
 RestartSec=3s

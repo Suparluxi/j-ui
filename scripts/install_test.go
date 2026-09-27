@@ -33,6 +33,7 @@ func TestInstallContinuesRollbackAndPreservesRecoveryFiles(t *testing.T) {
 		"deploy/j-ui-residential@.service",
 		"deploy/j-ui-certificate-renew.service", "deploy/j-ui-certificate-renew.timer",
 		"deploy/j-ui-certificate-issue@.service",
+		"deploy/nftables-j-ui.conf",
 		"deploy/j-ui.env", "deploy/empty-sing-box.json",
 		"scripts/update.sh", "scripts/uninstall.sh", "scripts/manage.sh", "scripts/ssl.sh", "scripts/argo.sh",
 	} {

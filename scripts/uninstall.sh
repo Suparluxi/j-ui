@@ -120,6 +120,8 @@ if [[ -x /usr/local/bin/j-ui ]]; then
 fi
 systemctl disable j-ui.service j-ui-sing-box.service j-ui-certificate-renew.timer 2>/dev/null || true
 rm -f /etc/systemd/system/j-ui.service /etc/systemd/system/j-ui-update.service /etc/systemd/system/j-ui-sing-box.service /etc/systemd/system/j-ui-residential@.service /etc/systemd/system/j-ui-certificate-renew.service /etc/systemd/system/j-ui-certificate-renew.timer /etc/systemd/system/j-ui-certificate-issue@.service
+rm -f /etc/systemd/system/nftables.service.d/j-ui.conf
+rmdir /etc/systemd/system/nftables.service.d 2>/dev/null || true
 rm -rf -- \
   /etc/systemd/system/j-ui.service.d \
   /etc/systemd/system/j-ui-update.service.d \

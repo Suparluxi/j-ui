@@ -66,6 +66,7 @@ func TestUpdateMigratesResidentialRuntimeForLegacyUpgrades(t *testing.T) {
 	}
 	for _, expected := range []string{
 		`ExecStartPre=/usr/local/lib/j-ui/update.sh --ensure-residential-runtime`,
+		`ExecStartPre=/usr/local/bin/j-ui ensure-management-firewall`,
 		`ReadWritePaths=/etc/j-ui /var/lib/j-ui /etc/systemd/system`,
 	} {
 		if !bytes.Contains(serviceUnit, []byte(expected)) {
@@ -185,6 +186,7 @@ esac
 		"deploy/j-ui-residential@.service",
 		"deploy/j-ui-certificate-renew.service", "deploy/j-ui-certificate-renew.timer",
 		"deploy/j-ui-certificate-issue@.service",
+		"deploy/nftables-j-ui.conf",
 		"scripts/update.sh", "scripts/uninstall.sh", "scripts/manage.sh", "scripts/ssl.sh", "scripts/argo.sh",
 	} {
 		writeFixtureFile(t, filepath.Join(release, path), "new-"+path+"\n", 0o755)

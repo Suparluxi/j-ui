@@ -58,6 +58,7 @@ declare -a managed_targets=(
   /etc/systemd/system/j-ui-certificate-renew.service
   /etc/systemd/system/j-ui-certificate-renew.timer
   /etc/systemd/system/j-ui-certificate-issue@.service
+  /etc/systemd/system/nftables.service.d/j-ui.conf
   /usr/local/lib/j-ui/update.sh
   /usr/local/lib/j-ui/uninstall.sh
   /usr/local/lib/j-ui/manage.sh
@@ -680,7 +681,7 @@ tar -xzf "${temporary_directory}/${archive}" -C "$temporary_directory"
 for required in j-ui deploy/j-ui.service deploy/j-ui-update.service deploy/j-ui-sing-box.service \
   deploy/j-ui-residential@.service \
   deploy/j-ui-certificate-renew.service deploy/j-ui-certificate-renew.timer \
-  deploy/j-ui-certificate-issue@.service deploy/j-ui.env deploy/empty-sing-box.json \
+  deploy/j-ui-certificate-issue@.service deploy/nftables-j-ui.conf deploy/j-ui.env deploy/empty-sing-box.json \
   scripts/update.sh scripts/uninstall.sh scripts/manage.sh scripts/ssl.sh scripts/argo.sh sing-box; do
   if [[ ! -e "${temporary_directory}/${required}" ]]; then
     i18n release_asset_missing "$required" >&2
@@ -937,6 +938,8 @@ install -m 0644 "${temporary_directory}/deploy/j-ui-residential@.service" /etc/s
 install -m 0644 "${temporary_directory}/deploy/j-ui-certificate-renew.service" /etc/systemd/system/j-ui-certificate-renew.service
 install -m 0644 "${temporary_directory}/deploy/j-ui-certificate-renew.timer" /etc/systemd/system/j-ui-certificate-renew.timer
 install -m 0644 "${temporary_directory}/deploy/j-ui-certificate-issue@.service" /etc/systemd/system/j-ui-certificate-issue@.service
+install -d -m 0755 /etc/systemd/system/nftables.service.d
+install -m 0644 "${temporary_directory}/deploy/nftables-j-ui.conf" /etc/systemd/system/nftables.service.d/j-ui.conf
 if [[ ! -e /etc/j-ui/j-ui.env ]]; then
   install -m 0600 "${temporary_directory}/deploy/j-ui.env" /etc/j-ui/j-ui.env
   sed -i "s|^JUI_LISTEN_ADDRESS=.*$|JUI_LISTEN_ADDRESS=${installation_listen}|" \
