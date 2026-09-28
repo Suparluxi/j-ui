@@ -109,6 +109,14 @@ func (s *Service) Close() {
 func (s *Service) Refresh(ctx context.Context) ([]model.VPNGateCandidate, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	ctx, cancel := context.WithTimeout(ctx, 75*time.Second)
+	defer cancel()
+	if refresher, ok := s.fetcher.(interface{ RefreshMirrors(context.Context) error }); ok {
+		if err := refresher.RefreshMirrors(ctx); err != nil {
+			s.recordEvent(ctx, "warning", "vpngate_mirror_refresh_failed",
+				"VPNGate 备用源地址更新失败，将继续尝试主源和现有备用源")
+		}
+	}
 	candidates, err := s.fetcher.Fetch(ctx)
 	if err != nil {
 		cached, cacheErr := s.store.ListVPNGateCandidates(ctx)

@@ -36,6 +36,10 @@ J-UI uses a fixed-domain Cloudflare Tunnel instead of a temporary address that m
 
 Nodes can bind to a manual SOCKS5/HTTP upstream or a temporary VPNGate exit. VPNGate runs inside an independent network namespace with OpenVPN and fail-closed firewall rules. A failed tunnel remains blocked instead of falling back to the VPS route, and expired resources are removed automatically.
 
+Refresh IPs first discovers fallback API addresses from VPNGate's official mirror directory, then requests the primary catalog. Mirrors are used only if the primary times out, returns HTML or invalid CSV, or has no candidates that pass the response check. Directory failures preserve the previous fallback addresses; catalog refresh failures preserve the cached list and return an error.
+
+Refreshed candidates must answer an OpenVPN TCP/UDP initial response probe from this VPS, with bounded concurrency, timeouts, and one UDP retry. Unresponsive, unsafe, or unverifiable configurations are excluded, including configurations that require additional control-channel keys. This check does not prove full VPN authentication, speed, or continued availability. Creating an exit still verifies the complete tunnel and its public exit IP.
+
 ![Isolated upstream exit](docs/images/readme/residential-exit.en.svg)
 
 ## Requirements

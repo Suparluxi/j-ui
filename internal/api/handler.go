@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -29,7 +30,7 @@ import (
 	"github.com/Suparluxi/j-ui/internal/vpngate"
 )
 
-var Version = "1.1.3"
+var Version = "1.1.6"
 
 const countryLookupBaseURL = "https://ip.net.coffee/api/ip/lookup/"
 
@@ -141,7 +142,14 @@ func (h *Handler) routes() {
 	h.mux.Handle("GET /api/v1/vpngate/regions", h.requireAuth(http.HandlerFunc(h.vpnGateRegions)))
 	h.mux.Handle("GET /api/v1/vpngate/nodes", h.requireAuth(http.HandlerFunc(h.vpnGateNodes)))
 	h.mux.Handle("POST /api/v1/vpngate/inspect", h.requireAuth(http.HandlerFunc(h.inspectVPNGateIP)))
-	h.mux.Handle("POST /api/v1/vpngate/refresh", h.requireAuth(http.HandlerFunc(h.refreshVPNGate)))
+	h.mux.Handle("POST /api/v1/vpngate/refresh", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		log.Print("VPNGate refresh request started")
+		defer func() {
+			log.Printf("VPNGate refresh request finished in %s", time.Since(start).Round(time.Millisecond))
+		}()
+		h.requireAuth(http.HandlerFunc(h.refreshVPNGate)).ServeHTTP(w, r)
+	}))
 	h.mux.Handle("GET /api/v1/vpngate/outbounds", h.requireAuth(http.HandlerFunc(h.listVPNGateExits)))
 	h.mux.Handle("POST /api/v1/vpngate/outbounds", h.requireAuth(http.HandlerFunc(h.createVPNGateExit)))
 	h.mux.Handle("POST /api/v1/vpngate/outbounds/{id}/swap", h.requireAuth(http.HandlerFunc(h.swapVPNGateExit)))
@@ -1074,9 +1082,11 @@ func (h *Handler) inspectVPNGateIP(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) refreshVPNGate(w http.ResponseWriter, r *http.Request) {
 	candidates, err := h.deps.VPNGate.Refresh(r.Context())
 	if err != nil {
+		log.Print("VPNGate refresh failed")
 		writeServiceError(w, err)
 		return
 	}
+	log.Printf("VPNGate refresh succeeded with %d candidates", len(candidates))
 	writeJSON(w, http.StatusOK, map[string]any{"count": len(candidates)})
 }
 

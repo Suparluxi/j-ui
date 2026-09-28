@@ -19,6 +19,36 @@ type fakeFetcher struct {
 	err        error
 }
 
+type refreshingFetcher struct {
+	fakeFetcher
+	order      []string
+	refreshErr error
+}
+
+func (f *refreshingFetcher) RefreshMirrors(context.Context) error {
+	f.order = append(f.order, "mirrors")
+	return f.refreshErr
+}
+
+func (f *refreshingFetcher) Fetch(ctx context.Context) ([]model.VPNGateCandidate, error) {
+	f.order = append(f.order, "catalog")
+	return f.fakeFetcher.Fetch(ctx)
+}
+
+func TestRefreshUpdatesMirrorsBeforeCatalogEvenWhenDiscoveryFails(t *testing.T) {
+	for _, discoveryErr := range []error{nil, errors.New("directory unavailable")} {
+		store := testStore(t)
+		fetcher := &refreshingFetcher{fakeFetcher: fakeFetcher{candidates: []model.VPNGateCandidate{
+			candidate("fresh", "198.51.100.1", 1, time.Now().UTC()),
+		}}, refreshErr: discoveryErr}
+		service := NewService(store, &fakeOrchestrator{}, fetcher, 5)
+		got, err := service.Refresh(context.Background())
+		if err != nil || len(got) != 1 || len(fetcher.order) != 2 || fetcher.order[0] != "mirrors" || fetcher.order[1] != "catalog" {
+			t.Fatalf("order=%v got=%v err=%v", fetcher.order, got, err)
+		}
+	}
+}
+
 func (f fakeFetcher) Fetch(context.Context) ([]model.VPNGateCandidate, error) {
 	return f.candidates, f.err
 }
