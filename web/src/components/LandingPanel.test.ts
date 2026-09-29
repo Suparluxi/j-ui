@@ -15,7 +15,7 @@ describe("LandingPanel", () => {
       const path = String(input);
       calls.push({ path, body: options?.body ? JSON.parse(String(options.body)) : undefined });
       if (path === "/api/v1/landing") return json({ enabled: true, inboundId: 1, configured: true, server: "jp.example.com", port: 443 });
-      if (path === "/api/v1/landing/script") return json({ script: "#!/usr/bin/env bash\necho JP_ADDR=203.0.113.1" });
+      if (path === "/api/v1/landing/script") return json({ script: "#!/usr/bin/env bash\necho ADDR=203.0.113.1" });
       if (path === "/api/v1/landing/rules") return json({
         source: "v2fly snapshot", base: { rules: [{ domain: ["ai.google.dev"], domain_suffix: ["chatgpt.com"], domain_regex: [] }] },
         include: [], exclude: []
@@ -40,7 +40,7 @@ describe("LandingPanel", () => {
     expect(root.querySelector(".landing-script textarea")).toBeNull();
     (Array.from(root.querySelectorAll("button")).find(button => button.textContent?.includes("Generate one-click script")) as HTMLButtonElement).click();
     await nextTick();
-    expect((root.querySelector(".landing-script textarea") as HTMLTextAreaElement).value).toContain("export JP_LISTEN_PORT='14443'");
+    expect((root.querySelector(".landing-script textarea") as HTMLTextAreaElement).value).toContain("export LANDING_LISTEN_PORT='14443'");
     (root.querySelector('button[type="submit"]') as HTMLButtonElement).click();
     for (let i = 0; i < 5; i++) { await Promise.resolve(); await nextTick(); }
     expect(calls.some(call => call.path === "/api/v1/landing" && call.body && !("inboundId" in call.body) && !("uri" in call.body))).toBe(true);
@@ -89,7 +89,7 @@ describe("LandingPanel", () => {
     generate.click();
     await nextTick();
     const script = (root.querySelector(".landing-script textarea") as HTMLTextAreaElement).value;
-    expect(script).toBe("#!/usr/bin/env bash\nexport JP_ADDR='203.0.113.10'\nexport JP_PORT='10086'\nexport JP_LISTEN_PORT='14443'\nexport JP_SNI='www.microsoft.com'\n\nset -euo pipefail\necho ready\n");
+    expect(script).toBe("#!/usr/bin/env bash\nexport LANDING_ADDR='203.0.113.10'\nexport LANDING_PORT='10086'\nexport LANDING_LISTEN_PORT='14443'\nexport LANDING_SNI='www.microsoft.com'\n\nset -euo pipefail\necho ready\n");
     const copy = Array.from(root.querySelectorAll("button")).find(button => button.textContent?.includes("复制一键脚本")) as HTMLButtonElement;
     copy.click();
     await nextTick();
@@ -114,7 +114,7 @@ describe("LandingPanel", () => {
     await nextTick();
     generate.click();
     await nextTick();
-    expect((root.querySelector(".landing-script textarea") as HTMLTextAreaElement).value).toContain("export JP_PORT='10087'");
+    expect((root.querySelector(".landing-script textarea") as HTMLTextAreaElement).value).toContain("export LANDING_PORT='10087'");
     publicAddress.value = "203.0.113.10.";
     publicAddress.dispatchEvent(new Event("input"));
     await nextTick();

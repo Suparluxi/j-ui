@@ -1418,7 +1418,7 @@ function residentialNodeFaulted(node: NodeRecord): boolean {
       </div>
 
       <div id="landing-section" class="page">
-        <div class="section-heading"><div><h2>{{ tr("配置落地机", "Japan Landing") }}</h2></div>
+        <div class="section-heading"><div><h2>{{ tr("配置落地机", "Landing Routing") }}</h2></div>
           <button class="ghost compact" type="button" :aria-expanded="showLanding" @click="showLanding = !showLanding">{{ showLanding ? tr("收起", "Collapse") : tr("配置", "Configure") }}</button>
         </div>
         <LandingPanel v-if="showLanding" class="panel" :language="language" :preview="systemInfo.demoPreview === true" />

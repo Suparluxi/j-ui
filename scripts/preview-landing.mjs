@@ -69,10 +69,10 @@ createServer(async (request, response) => {
     let input;
     try { input = JSON.parse(raw); } catch { return reply(response, 400, { message: "请求格式无效" }); }
     if (pathname === "/api/v1/landing") {
-      if (Object.hasOwn(input, "uri")) return reply(response, 400, { message: "不再支持 VLESS URI 导入，请使用日本机返回的六行 JP_* 信息" });
+      if (Object.hasOwn(input, "uri")) return reply(response, 400, { message: "不再支持 VLESS URI 导入，请使用落地机返回的六行连接信息" });
       if (input.details) return reply(response, 400, { message: "演示模式不接收真实节点信息" });
       if (input.inboundId) return reply(response, 400, { message: "请刷新落地机页面，旧版单入口设置已移除" });
-      if (input.enabled && !landing.configured) return reply(response, 400, { message: "演示模式没有配置日本出口" });
+      if (input.enabled && !landing.configured) return reply(response, 400, { message: "演示模式没有配置落地出口" });
       landing = { ...landing, enabled: Boolean(input.enabled), inboundId: 0 };
       return reply(response, 200, landing);
     }

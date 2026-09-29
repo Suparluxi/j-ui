@@ -1,39 +1,47 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Run on Japan as root. This instance never edits J-UI or Xray services.
-[[ $EUID -eq 0 ]] || { echo 'Run as root on the Japan VPS.' >&2; exit 1; }
+# Run on the target landing VPS as root. This instance never edits J-UI or Xray services.
+[[ $EUID -eq 0 ]] || { echo 'Run as root on the target landing VPS.' >&2; exit 1; }
 for tool in curl sha256sum tar mktemp openssl systemctl ss useradd install; do
   command -v "$tool" >/dev/null || { echo "Missing prerequisite: $tool" >&2; exit 1; }
 done
 
-public_port="${JP_PORT:-14443}"
-listen_port="${JP_LISTEN_PORT:-$public_port}"
-sni="${JP_SNI:-www.microsoft.com}"
-[[ $public_port =~ ^[0-9]+$ ]] && (( 10#$public_port >= 1 && 10#$public_port <= 65535 )) || { echo 'Invalid JP_PORT.' >&2; exit 1; }
-[[ $listen_port =~ ^[0-9]+$ ]] && (( 10#$listen_port >= 1 && 10#$listen_port <= 65535 )) || { echo 'Invalid JP_LISTEN_PORT.' >&2; exit 1; }
+public_port="${LANDING_PORT:-${JP_PORT:-14443}}"
+listen_port="${LANDING_LISTEN_PORT:-${JP_LISTEN_PORT:-$public_port}}"
+sni="${LANDING_SNI:-${JP_SNI:-www.microsoft.com}}"
+[[ $public_port =~ ^[0-9]+$ ]] && (( 10#$public_port >= 1 && 10#$public_port <= 65535 )) || { echo 'Invalid LANDING_PORT.' >&2; exit 1; }
+[[ $listen_port =~ ^[0-9]+$ ]] && (( 10#$listen_port >= 1 && 10#$listen_port <= 65535 )) || { echo 'Invalid LANDING_LISTEN_PORT.' >&2; exit 1; }
 public_port=$((10#$public_port))
 listen_port=$((10#$listen_port))
-[[ $sni =~ ^[a-zA-Z0-9.-]+$ && $sni == *.* && $sni != .* && $sni != *. ]] || { echo 'Invalid JP_SNI.' >&2; exit 1; }
+[[ $sni =~ ^[a-zA-Z0-9.-]+$ && $sni == *.* && $sni != .* && $sni != *. ]] || { echo 'Invalid LANDING_SNI.' >&2; exit 1; }
 
 config_dir=/etc/j-ui-landing
 binary=/opt/j-ui-landing/sing-box
 unit=/etc/systemd/system/j-ui-landing.service
 info="$config_dir/connection"
 listen_info="$config_dir/listen-port"
+read_saved_field() {
+  local field="$1" legacy_field="$2" value
+  value=$(sed -n "s/^${field}=//p" "$info" | head -n 1)
+  if [[ -z $value ]]; then
+    value=$(sed -n "s/^${legacy_field}=//p" "$info" | head -n 1)
+  fi
+  printf '%s' "$value"
+}
 if [[ -e $info ]]; then
   [[ -f $config_dir/config.json && -f $unit && -x $binary ]] || { echo 'Incomplete landing installation; inspect it before retrying.' >&2; exit 1; }
-  saved_port=$(sed -n 's/^JP_PORT=//p' "$info")
-  saved_sni=$(sed -n 's/^JP_SNI=//p' "$info")
+  saved_port=$(read_saved_field PORT JP_PORT)
+  saved_sni=$(read_saved_field SNI JP_SNI)
   [[ $public_port == "$saved_port" && $sni == "$saved_sni" ]] || { echo 'Landing instance already exists with different public port or SNI; do not rerun to migrate it.' >&2; exit 1; }
-  if [[ -n ${JP_LISTEN_PORT+x} ]]; then
+  if [[ -n ${LANDING_LISTEN_PORT+x} || -n ${JP_LISTEN_PORT+x} ]]; then
     [[ -f $listen_info && $listen_port == "$(<"$listen_info")" ]] || { echo 'Existing listen port cannot be changed by rerunning this script.' >&2; exit 1; }
   fi
   systemctl is-active --quiet j-ui-landing.service || systemctl start j-ui-landing.service
 else
   [[ ! -e $config_dir && ! -e $unit && ! -e $binary ]] || { echo 'Landing paths already exist; refusing to overwrite them.' >&2; exit 1; }
   if ss -H -ltn "sport = :$listen_port" | grep -q .; then
-    echo "TCP listen port $listen_port is already in use; choose JP_LISTEN_PORT before running." >&2
+    echo "TCP listen port $listen_port is already in use; choose LANDING_LISTEN_PORT before running." >&2
     exit 1
   fi
   case "$(uname -m)" in
@@ -83,7 +91,7 @@ EOF
   fi
   cat > "$unit" <<EOF
 [Unit]
-Description=Independent Japan VLESS Reality landing for J-UI
+Description=Independent VLESS Reality landing for J-UI
 After=network-online.target
 Wants=network-online.target
 
@@ -102,7 +110,7 @@ $privileged_port_capability
 [Install]
 WantedBy=multi-user.target
 EOF
-  printf 'JP_PORT=%s\nJP_UUID=%s\nJP_PUB=%s\nJP_SID=%s\nJP_SNI=%s\n' "$public_port" "$uuid" "$public" "$sid" "$sni" > "$info"
+  printf 'PORT=%s\nUUID=%s\nPUB=%s\nSID=%s\nSNI=%s\n' "$public_port" "$uuid" "$public" "$sid" "$sni" > "$info"
   chmod 0600 "$info"
   printf '%s\n' "$listen_port" > "$listen_info"
   chmod 0600 "$listen_info"
@@ -112,16 +120,21 @@ EOF
   systemctl enable j-ui-landing.service >/dev/null
 fi
 
-address="${JP_ADDR:-$(curl -4fsS --max-time 8 https://api.ipify.org)}"
+address="${LANDING_ADDR:-${JP_ADDR:-$(curl -4fsS --max-time 8 https://api.ipify.org)}}"
 if [[ ! $address =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
-  echo 'Could not detect a public IPv4 address; rerun with JP_ADDR=<Japan public IPv4>.' >&2
+  echo 'Could not detect a public IPv4 address; rerun with LANDING_ADDR=<public IPv4>.' >&2
   exit 1
 fi
 IFS=. read -r a b c d <<< "$address"
 for octet in "$a" "$b" "$c" "$d"; do
-  (( 10#$octet <= 255 )) || { echo 'Invalid JP_ADDR.' >&2; exit 1; }
+  (( 10#$octet <= 255 )) || { echo 'Invalid LANDING_ADDR.' >&2; exit 1; }
 done
-echo 'Japan landing service is running. Copy only the following block into the Hong Kong panel:' >&2
-printf 'JP_ADDR=%s\n' "$address"
-cat "$info"
-echo "Japan listens on TCP $listen_port; Hong Kong connects to public TCP $public_port. Verify the provider NAT mapping and firewall before enabling routing." >&2
+if [[ -e $info ]]; then
+  uuid=$(read_saved_field UUID JP_UUID)
+  public=$(read_saved_field PUB JP_PUB)
+  sid=$(read_saved_field SID JP_SID)
+  [[ -n $uuid && -n $public && -n $sid ]] || { echo 'Saved landing credentials are incomplete.' >&2; exit 1; }
+fi
+echo 'Landing service is running. Copy only the following block into the relay panel:' >&2
+printf 'ADDR=%s\nPORT=%s\nUUID=%s\nPUB=%s\nSID=%s\nSNI=%s\n' "$address" "$public_port" "$uuid" "$public" "$sid" "$sni"
+echo "Landing listens on TCP $listen_port; the relay connects to public TCP $public_port. Verify the provider NAT mapping and firewall before enabling routing." >&2

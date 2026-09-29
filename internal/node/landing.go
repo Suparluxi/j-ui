@@ -127,7 +127,7 @@ func (s *Service) SetLanding(ctx context.Context, input LandingInput) (LandingVi
 	}
 	if current.Enabled {
 		if current.URI == "" {
-			return LandingView{}, validationError(errors.New("enabled landing requires six JP_* connection details"))
+			return LandingView{}, validationError(errors.New("enabled landing requires six connection details"))
 		}
 	}
 	mutationCtx, cancel := s.detachedContext(ctx)
@@ -311,7 +311,9 @@ func parseLandingURI(raw string) (*singbox.AIRouting, error) {
 
 func landingDetailsURI(raw string) (string, error) {
 	fields := map[string]string{}
-	allowed := map[string]bool{"JP_ADDR": true, "JP_PORT": true, "JP_UUID": true, "JP_PUB": true, "JP_SID": true, "JP_SNI": true}
+	allowed := map[string]bool{"ADDR": true, "PORT": true, "UUID": true, "PUB": true, "SID": true, "SNI": true}
+	legacy := map[string]string{"JP_ADDR": "ADDR", "JP_PORT": "PORT", "JP_UUID": "UUID", "JP_PUB": "PUB", "JP_SID": "SID", "JP_SNI": "SNI"}
+	format := ""
 	if len(raw) > 2048 {
 		return "", errors.New("landing connection details are too long")
 	}
@@ -321,22 +323,31 @@ func landingDetailsURI(raw string) (string, error) {
 			continue
 		}
 		key, value, ok := strings.Cut(line, "=")
-		if !ok || !allowed[key] || fields[key] != "" || strings.TrimSpace(value) != value || value == "" {
-			return "", errors.New("landing connection details must contain six unique JP_* fields")
+		normalized, isLegacy := legacy[key]
+		if !isLegacy {
+			normalized = key
 		}
-		fields[key] = value
+		currentFormat := "modern"
+		if isLegacy {
+			currentFormat = "legacy"
+		}
+		if !ok || !allowed[normalized] || fields[normalized] != "" || strings.TrimSpace(value) != value || value == "" || (format != "" && format != currentFormat) {
+			return "", errors.New("landing connection details must contain six unique fields: ADDR, PORT, UUID, PUB, SID and SNI")
+		}
+		format = currentFormat
+		fields[normalized] = value
 	}
 	if len(fields) != len(allowed) {
-		return "", errors.New("landing connection details must contain JP_ADDR, JP_PORT, JP_UUID, JP_PUB, JP_SID and JP_SNI")
+		return "", errors.New("landing connection details must contain ADDR, PORT, UUID, PUB, SID and SNI")
 	}
-	port, err := strconv.Atoi(fields["JP_PORT"])
+	port, err := strconv.Atoi(fields["PORT"])
 	if err != nil || port < 1 || port > 65535 {
 		return "", errors.New("invalid landing port")
 	}
 	query := url.Values{"security": {"reality"}, "type": {"tcp"}, "encryption": {"none"},
-		"sni": {fields["JP_SNI"]}, "pbk": {fields["JP_PUB"]}, "sid": {fields["JP_SID"]},
+		"sni": {fields["SNI"]}, "pbk": {fields["PUB"]}, "sid": {fields["SID"]},
 		"flow": {"xtls-rprx-vision"}, "fp": {"chrome"}}
-	uri := "vless://" + fields["JP_UUID"] + "@" + fields["JP_ADDR"] + ":" + strconv.Itoa(port) + "?" + query.Encode()
+	uri := "vless://" + fields["UUID"] + "@" + fields["ADDR"] + ":" + strconv.Itoa(port) + "?" + query.Encode()
 	if _, err := parseLandingURI(uri); err != nil {
 		return "", err
 	}

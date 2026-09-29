@@ -21,8 +21,8 @@ import (
 	nodeservice "github.com/Suparluxi/j-ui/internal/node"
 )
 
-const testLandingDetails = "JP_ADDR=jp.example.com\nJP_PORT=443\nJP_UUID=00000000-0000-4000-8000-000000000000\n" +
-	"JP_PUB=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\nJP_SID=abcd\nJP_SNI=www.example.com"
+const testLandingDetails = "ADDR=landing.example.com\nPORT=443\nUUID=00000000-0000-4000-8000-000000000000\n" +
+	"PUB=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\nSID=abcd\nSNI=www.example.com"
 
 func TestLandingFollowsRegularNodeChangesAndPreservesDedicatedExits(t *testing.T) {
 	root := t.TempDir()
@@ -115,7 +115,7 @@ func TestLegacyLandingScopeExpandsOnlyAfterSave(t *testing.T) {
 		return node.ID
 	}
 	first, second := create("first"), create("second")
-	uri := "vless://00000000-0000-4000-8000-000000000000@jp.example.com:443?security=reality&type=tcp&sni=www.example.com&pbk=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&sid=abcd"
+	uri := "vless://00000000-0000-4000-8000-000000000000@legacy.example.com:443?security=reality&type=tcp&sni=www.example.com&pbk=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&sid=abcd"
 	legacy, err := json.Marshal(map[string]any{"enabled": true, "inboundId": first, "uri": uri})
 	if err != nil {
 		t.Fatal(err)

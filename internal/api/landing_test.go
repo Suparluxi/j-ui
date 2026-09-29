@@ -67,10 +67,12 @@ func TestLandingAPIAcceptsOnlyDetailsAndLimitsRouting(t *testing.T) {
 		!bytes.Contains(script.Body.Bytes(), []byte("sha256sum")) {
 		t.Fatalf("landing script unavailable: %d", script.Code)
 	}
-	details := "JP_ADDR=jp.example.net\nJP_PORT=14443\nJP_UUID=11111111-1111-4111-8111-111111111111\n" +
+	details := "ADDR=landing.example.net\nPORT=14443\nUUID=11111111-1111-4111-8111-111111111111\n" +
+		"PUB=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\nSID=1234abcd\nSNI=www.microsoft.com"
+	legacyDetails := "JP_ADDR=legacy.example.net\nJP_PORT=14443\nJP_UUID=11111111-1111-4111-8111-111111111111\n" +
 		"JP_PUB=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\nJP_SID=1234abcd\nJP_SNI=www.microsoft.com"
 	for _, oldURI := range []string{"hysteria2://secret@jp.example.com:443",
-		"vless://00000000-0000-4000-8000-000000000000@jp.example.com:443?security=reality&type=tcp&encryption=none&sni=www.example.com&fp=chrome&pbk=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&sid=abcd&flow=xtls-rprx-vision"} {
+		"vless://00000000-0000-4000-8000-000000000000@legacy.example.com:443?security=reality&type=tcp&encryption=none&sni=www.example.com&fp=chrome&pbk=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&sid=abcd&flow=xtls-rprx-vision"} {
 		rejected := performJSON(handler, http.MethodPut, "/api/v1/landing", map[string]any{
 			"enabled": true, "uri": oldURI,
 		}, cookie, session.CSRFToken)
@@ -86,28 +88,38 @@ func TestLandingAPIAcceptsOnlyDetailsAndLimitsRouting(t *testing.T) {
 	if saved.Code != http.StatusOK || bytes.Contains(saved.Body.Bytes(), []byte("11111111-1111")) {
 		t.Fatalf("saved landing status=%d body=%s", saved.Code, saved.Body.String())
 	}
+	legacy := performJSON(handler, http.MethodPut, "/api/v1/landing", map[string]any{
+		"enabled": true, "details": legacyDetails,
+	}, cookie, session.CSRFToken)
+	if legacy.Code != http.StatusOK || bytes.Contains(legacy.Body.Bytes(), []byte("11111111-1111")) {
+		t.Fatalf("legacy details status=%d body=%s", legacy.Code, legacy.Body.String())
+	}
+	mixed := performJSON(handler, http.MethodPut, "/api/v1/landing", map[string]any{
+		"enabled": true, "details": strings.Replace(legacyDetails, "JP_ADDR=legacy.example.net", "ADDR=legacy.example.net", 1),
+	}, cookie, session.CSRFToken)
+	assertAPIError(t, mixed, http.StatusBadRequest, "validation_failed")
 	stored, err := app.Store.Setting(context.Background(), "ai_landing_v1")
 	if err != nil || strings.Contains(stored, "11111111-1111") {
-		t.Fatal("Japan connection details persisted in plaintext")
+		t.Fatal("landing connection details persisted in plaintext")
 	}
 	view := performJSON(handler, http.MethodGet, "/api/v1/landing", nil, cookie, "")
 	if view.Code != http.StatusOK || !bytes.Contains(view.Body.Bytes(), []byte(`"configured":true`)) ||
-		bytes.Contains(view.Body.Bytes(), []byte("11111111-1111")) || bytes.Contains(view.Body.Bytes(), []byte("jp.example.net")) {
+		bytes.Contains(view.Body.Bytes(), []byte("11111111-1111")) || bytes.Contains(view.Body.Bytes(), []byte("landing.example.net")) {
 		t.Fatalf("landing view: %s", view.Body.String())
 	}
 	imported := performJSON(handler, http.MethodPut, "/api/v1/landing", map[string]any{
-		"enabled": true, "details": strings.Replace(details, "JP_PORT=14443", "JP_PORT=10086", 1),
+		"enabled": true, "details": strings.Replace(details, "PORT=14443", "PORT=10086", 1),
 	}, cookie, session.CSRFToken)
 	if imported.Code != http.StatusOK || bytes.Contains(imported.Body.Bytes(), []byte("10086")) ||
-		bytes.Contains(imported.Body.Bytes(), []byte("jp.example.net")) || bytes.Contains(imported.Body.Bytes(), []byte("11111111-1111")) {
+		bytes.Contains(imported.Body.Bytes(), []byte("landing.example.net")) || bytes.Contains(imported.Body.Bytes(), []byte("11111111-1111")) {
 		t.Fatalf("import result status=%d body=%s", imported.Code, imported.Body.String())
 	}
 	stored, err = app.Store.Setting(context.Background(), "ai_landing_v1")
 	if err != nil || strings.Contains(stored, "11111111-1111") {
-		t.Fatal("Japan details persisted in plaintext")
+		t.Fatal("landing details persisted in plaintext")
 	}
-	for _, bad := range []string{details + "\nJP_ADDR=other.example.com", strings.Replace(details, "JP_PORT=14443", "JP_PORT=invalid", 1),
-		strings.Replace(details, "JP_ADDR=jp.example.net", "JP_ADDR=本机公网IP", 1)} {
+	for _, bad := range []string{details + "\nADDR=other.example.com", strings.Replace(details, "PORT=14443", "PORT=invalid", 1),
+		strings.Replace(details, "ADDR=landing.example.net", "ADDR=本机公网IP", 1)} {
 		rejected := performJSON(handler, http.MethodPut, "/api/v1/landing", map[string]any{
 			"enabled": true, "details": bad,
 		}, cookie, session.CSRFToken)

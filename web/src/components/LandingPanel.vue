@@ -43,10 +43,10 @@ const shellQuote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
 function generateScript() {
   if (portGuideError.value || !setupScript.value) return;
   const assignments = [
-    publicAddress.value.trim() ? `export JP_ADDR=${shellQuote(publicAddress.value.trim())}` : "",
-    `export JP_PORT=${shellQuote(publicPort.value)}`,
-    `export JP_LISTEN_PORT=${shellQuote(listenPort.value)}`,
-    `export JP_SNI=${shellQuote(sni.value.trim())}`
+    publicAddress.value.trim() ? `export LANDING_ADDR=${shellQuote(publicAddress.value.trim())}` : "",
+    `export LANDING_PORT=${shellQuote(publicPort.value)}`,
+    `export LANDING_LISTEN_PORT=${shellQuote(listenPort.value)}`,
+    `export LANDING_SNI=${shellQuote(sni.value.trim())}`
   ].filter(Boolean);
   const body = setupScript.value.replace(/^#![^\r\n]*(?:\r?\n|$)/, "");
   generatedScript.value = `#!/usr/bin/env bash\n${assignments.join("\n")}\n\n${body}`;
