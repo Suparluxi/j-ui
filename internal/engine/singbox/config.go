@@ -1,6 +1,7 @@
 package singbox
 
 import (
+	_ "embed"
 	"encoding/json"
 	"fmt"
 
@@ -12,15 +13,53 @@ type NodeWithClients struct {
 	Clients []model.Client
 }
 
+//go:embed ai-rule-set.json
+var aiRuleSet []byte
+
+type AIDomains struct {
+	Version int            `json:"version"`
+	Rules   []AIDomainRule `json:"rules"`
+}
+
+type AIDomainRule struct {
+	Domain       []string `json:"domain"`
+	DomainSuffix []string `json:"domain_suffix"`
+	DomainRegex  []string `json:"domain_regex"`
+}
+
+func DefaultAIDomains() (AIDomains, error) {
+	var domains AIDomains
+	err := json.Unmarshal(aiRuleSet, &domains)
+	return domains, err
+}
+
+type AIRouting struct {
+	InboundIDs []int64
+	Base       *AIDomains
+	Server     string
+	Port       int
+	UUID       string
+	ServerName string
+	PublicKey  string
+	ShortID    string
+	Flow       string
+	Include    []string
+	Exclude    []string
+}
+
 func Generate(items []NodeWithClients) ([]byte, error) {
-	return generate(items, nil, false)
+	return generate(items, nil, false, nil)
 }
 
 func GenerateWithOutbounds(items []NodeWithClients, configured []model.Outbound) ([]byte, error) {
-	return generate(items, configured, true)
+	return generate(items, configured, true, nil)
 }
 
-func generate(items []NodeWithClients, configured []model.Outbound, routing bool) ([]byte, error) {
+func GenerateWithAIRouting(items []NodeWithClients, configured []model.Outbound, ai *AIRouting) ([]byte, error) {
+	return generate(items, configured, true, ai)
+}
+
+func generate(items []NodeWithClients, configured []model.Outbound, routing bool, ai *AIRouting) ([]byte, error) {
 	inbounds := make([]any, 0, len(items))
 	var outbounds []any
 	if routing {
@@ -56,6 +95,56 @@ func generate(items []NodeWithClients, configured []model.Outbound, routing bool
 		outbounds = append(outbounds, entry)
 	}
 	rules := make([]any, 0)
+	if ai != nil {
+		eligible := make(map[int64]bool, len(items))
+		for _, item := range items {
+			if item.Node.Enabled && item.Node.OutboundID == nil {
+				eligible[item.Node.ID] = true
+			}
+		}
+		inboundTags := make([]string, 0, len(ai.InboundIDs))
+		seen := make(map[int64]bool, len(ai.InboundIDs))
+		for _, id := range ai.InboundIDs {
+			if !eligible[id] || seen[id] {
+				return nil, fmt.Errorf("AI routing requires distinct enabled native inbounds; invalid node %d", id)
+			}
+			seen[id] = true
+			inboundTags = append(inboundTags, fmt.Sprintf("node-%d", id))
+		}
+		outbounds = append(outbounds, map[string]any{
+			"type": "vless", "tag": "ai-japan", "server": ai.Server, "server_port": ai.Port,
+			"uuid": ai.UUID, "flow": ai.Flow,
+			"tls": map[string]any{
+				"enabled": true, "server_name": ai.ServerName,
+				"utls":    map[string]any{"enabled": true, "fingerprint": "chrome"},
+				"reality": map[string]any{"enabled": true, "public_key": ai.PublicKey, "short_id": ai.ShortID},
+			},
+		})
+		if len(inboundTags) > 0 {
+			rules = append(rules, map[string]any{"inbound": inboundTags, "action": "sniff", "sniffer": []string{"http", "tls", "quic"}})
+		}
+		if len(inboundTags) > 0 && len(ai.Exclude) > 0 {
+			rules = append(rules, map[string]any{"inbound": inboundTags, "domain_suffix": ai.Exclude,
+				"action": "route", "outbound": "native"})
+		}
+		if len(inboundTags) > 0 && len(ai.Include) > 0 {
+			rules = append(rules, map[string]any{"inbound": inboundTags, "domain_suffix": ai.Include,
+				"action": "route", "outbound": "ai-japan"})
+		}
+		base, err := DefaultAIDomains()
+		if ai.Base != nil {
+			base, err = *ai.Base, nil
+		}
+		if err != nil || len(base.Rules) != 1 {
+			return nil, fmt.Errorf("load AI domain snapshot: %v", err)
+		}
+		list := base.Rules[0]
+		if len(inboundTags) > 0 {
+			rules = append(rules, map[string]any{"inbound": inboundTags,
+				"domain": list.Domain, "domain_suffix": list.DomainSuffix, "domain_regex": list.DomainRegex,
+				"action": "route", "outbound": "ai-japan"})
+		}
+	}
 	for _, item := range items {
 		if !item.Node.Enabled {
 			continue

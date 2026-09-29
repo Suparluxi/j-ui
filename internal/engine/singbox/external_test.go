@@ -94,6 +94,38 @@ func TestGeneratedConfigWithSingBox(t *testing.T) {
 	}
 }
 
+func TestGeneratedAIRoutingWithSingBox(t *testing.T) {
+	binary := os.Getenv("SINGBOX_TEST_BINARY")
+	if binary == "" {
+		t.Skip("SINGBOX_TEST_BINARY is not set")
+	}
+	config, err := GenerateWithAIRouting([]NodeWithClients{
+		{
+			Node:    model.Node{ID: 1, Protocol: model.ProtocolSOCKS5, Listen: "127.0.0.1", Port: 19881, Enabled: true},
+			Clients: []model.Client{{Enabled: true, Credential: map[string]any{"username": "test", "password": "test-password"}}},
+		},
+		{
+			Node:    model.Node{ID: 2, Protocol: model.ProtocolSOCKS5, Listen: "127.0.0.1", Port: 19882, Enabled: true},
+			Clients: []model.Client{{Enabled: true, Credential: map[string]any{"username": "other", "password": "test-password"}}},
+		},
+	}, nil, &AIRouting{
+		InboundIDs: []int64{1, 2}, Server: "jp.example.com", Port: 443,
+		UUID: "00000000-0000-4000-8000-000000000000", Flow: "xtls-rprx-vision",
+		ServerName: "www.example.com", PublicKey: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", ShortID: "abcd",
+		Include: []string{"custom.example"}, Exclude: []string{"excluded.example"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	configPath := filepath.Join(t.TempDir(), "sing-box.json")
+	if err := os.WriteFile(configPath, config, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if output, err := exec.Command(binary, "check", "-c", configPath).CombinedOutput(); err != nil {
+		t.Fatalf("sing-box check: %v\n%s", err, output)
+	}
+}
+
 func TestGeneratedSOCKS5StartsFixedTCPListener(t *testing.T) {
 	binary := os.Getenv("SINGBOX_TEST_BINARY")
 	if binary == "" {

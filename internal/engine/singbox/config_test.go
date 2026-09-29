@@ -59,6 +59,46 @@ func TestGenerateAllProtocols(t *testing.T) {
 	}
 }
 
+func TestCustomAIBaselineReplacesBundledSnapshot(t *testing.T) {
+	base, err := DefaultAIDomains()
+	if err != nil {
+		t.Fatal(err)
+	}
+	base.Rules[0].Domain = []string{"custom.ai.example"}
+	base.Rules[0].DomainSuffix = nil
+	base.Rules[0].DomainRegex = nil
+	config, err := GenerateWithAIRouting([]NodeWithClients{{
+		Node:    model.Node{ID: 1, Protocol: model.ProtocolSOCKS5, Listen: "127.0.0.1", Port: 1080, Enabled: true},
+		Clients: []model.Client{{Enabled: true, Credential: map[string]any{"username": "user", "password": "password"}}},
+	}}, nil, &AIRouting{InboundIDs: []int64{1}, Base: &base, Server: "jp.example.com", Port: 443,
+		UUID: "00000000-0000-4000-8000-000000000000", ServerName: "www.example.com",
+		PublicKey: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", ShortID: "abcd"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Route struct {
+			Rules []struct {
+				Outbound     string   `json:"outbound"`
+				Domain       []string `json:"domain"`
+				DomainSuffix []string `json:"domain_suffix"`
+			} `json:"rules"`
+		} `json:"route"`
+	}
+	if err := json.Unmarshal(config, &doc); err != nil {
+		t.Fatal(err)
+	}
+	for _, rule := range doc.Route.Rules {
+		if rule.Outbound == "ai-japan" {
+			if len(rule.Domain) != 1 || rule.Domain[0] != "custom.ai.example" || len(rule.DomainSuffix) != 0 {
+				t.Fatalf("unexpected effective baseline: %+v", rule)
+			}
+			return
+		}
+	}
+	t.Fatal("AI rule not generated")
+}
+
 func TestGenerateManualOutboundUsesExplicitInboundRoute(t *testing.T) {
 	outboundID := int64(9)
 	config, err := GenerateWithOutbounds([]NodeWithClients{{
@@ -124,5 +164,51 @@ func TestGenerateOmitsUnboundOutbounds(t *testing.T) {
 	}
 	if len(document.Outbounds) != 1 || document.Outbounds[0]["tag"] != "native" {
 		t.Fatalf("unbound outbound was retained: %#v", document.Outbounds)
+	}
+}
+
+func TestGenerateAIRoutingCoversEligibleInbounds(t *testing.T) {
+	boundID := int64(9)
+	items := []NodeWithClients{
+		{Node: model.Node{ID: 1, Protocol: model.ProtocolSOCKS5, Listen: "127.0.0.1", Port: 1081, Enabled: true}},
+		{Node: model.Node{ID: 2, Protocol: model.ProtocolVLESSReality, Listen: "127.0.0.1", Port: 1082, Enabled: true}},
+		{Node: model.Node{ID: 3, Protocol: model.ProtocolSOCKS5, Listen: "127.0.0.1", Port: 1083, Enabled: true, OutboundID: &boundID}},
+		{Node: model.Node{ID: 4, Protocol: model.ProtocolSOCKS5, Listen: "127.0.0.1", Port: 1084, Enabled: false}},
+	}
+	ai := &AIRouting{InboundIDs: []int64{1, 2}, Server: "jp.example.com", Port: 443,
+		UUID: "00000000-0000-4000-8000-000000000000", ServerName: "www.example.com",
+		PublicKey: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", ShortID: "abcd",
+		Include: []string{"new-ai.example"}, Exclude: []string{"excluded.example"}}
+	config, err := GenerateWithAIRouting(items, []model.Outbound{{ID: boundID, Type: model.OutboundSOCKS5, Server: "127.0.0.1", Port: 1080, Enabled: true}}, ai)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document struct {
+		Route struct {
+			Final string           `json:"final"`
+			Rules []map[string]any `json:"rules"`
+		} `json:"route"`
+	}
+	if err := json.Unmarshal(config, &document); err != nil {
+		t.Fatal(err)
+	}
+	if document.Route.Final != "native" || len(document.Route.Rules) != 5 {
+		t.Fatalf("unexpected AI rules: %#v", document.Route)
+	}
+	for _, rule := range document.Route.Rules[:4] {
+		inbounds := rule["inbound"].([]any)
+		if len(inbounds) != 2 || inbounds[0] != "node-1" || inbounds[1] != "node-2" {
+			t.Fatalf("unexpected AI rule scope: %#v", rule)
+		}
+	}
+	if document.Route.Rules[0]["action"] != "sniff" || document.Route.Rules[1]["outbound"] != "native" ||
+		document.Route.Rules[2]["outbound"] != "ai-japan" || document.Route.Rules[3]["outbound"] != "ai-japan" ||
+		document.Route.Rules[4]["outbound"] != "outbound-9" {
+		t.Fatalf("incorrect route priority: %#v", document.Route.Rules)
+	}
+	for _, id := range []int64{3, 4, 99} {
+		if _, err := GenerateWithAIRouting(items, nil, &AIRouting{InboundIDs: []int64{id}}); err == nil {
+			t.Fatalf("ineligible AI source node %d must fail closed", id)
+		}
 	}
 }

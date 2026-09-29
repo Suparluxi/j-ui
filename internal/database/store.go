@@ -488,6 +488,27 @@ func (s *Store) SetSetting(ctx context.Context, key, value string) error {
 	return err
 }
 
+func (s *Store) SecretSetting(ctx context.Context, key string) ([]byte, error) {
+	value, err := s.Setting(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+	return s.sealer.Open(value)
+}
+
+func (s *Store) SetSecretSetting(ctx context.Context, key string, value []byte) error {
+	sealed, err := s.sealer.Seal(value)
+	if err != nil {
+		return err
+	}
+	return s.SetSetting(ctx, key, sealed)
+}
+
+func (s *Store) DeleteSetting(ctx context.Context, key string) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM system_settings WHERE key = ?`, key)
+	return err
+}
+
 // SetNodePortsAndStart updates the complete managed port range atomically.
 // Temporary negative ports avoid transient UNIQUE(listen, port) collisions
 // while existing nodes exchange positions inside the same transaction.

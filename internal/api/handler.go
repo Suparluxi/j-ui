@@ -139,6 +139,12 @@ func (h *Handler) routes() {
 	h.mux.Handle("PUT /api/v1/outbounds/{id}", h.requireAuth(http.HandlerFunc(h.updateOutbound)))
 	h.mux.Handle("DELETE /api/v1/outbounds/{id}", h.requireAuth(http.HandlerFunc(h.deleteOutbound)))
 	h.mux.Handle("POST /api/v1/outbounds/{id}/check", h.requireAuth(http.HandlerFunc(h.checkOutbound)))
+	h.mux.Handle("GET /api/v1/landing", h.requireAuth(http.HandlerFunc(h.getLanding)))
+	h.mux.Handle("GET /api/v1/landing/script", h.requireAuth(http.HandlerFunc(h.getLandingScript)))
+	h.mux.Handle("PUT /api/v1/landing", h.requireAuth(http.HandlerFunc(h.setLanding)))
+	h.mux.Handle("GET /api/v1/landing/rules", h.requireAuth(http.HandlerFunc(h.getLandingRules)))
+	h.mux.Handle("PUT /api/v1/landing/rules", h.requireAuth(http.HandlerFunc(h.setLandingRules)))
+	h.mux.Handle("POST /api/v1/landing/rules/refresh", h.requireAuth(http.HandlerFunc(h.refreshLandingRules)))
 	h.mux.Handle("GET /api/v1/vpngate/regions", h.requireAuth(http.HandlerFunc(h.vpnGateRegions)))
 	h.mux.Handle("GET /api/v1/vpngate/nodes", h.requireAuth(http.HandlerFunc(h.vpnGateNodes)))
 	h.mux.Handle("POST /api/v1/vpngate/inspect", h.requireAuth(http.HandlerFunc(h.inspectVPNGateIP)))
@@ -982,6 +988,68 @@ func (h *Handler) listOutbounds(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, outbounds)
+}
+
+func (h *Handler) getLanding(w http.ResponseWriter, r *http.Request) {
+	view, err := h.deps.Nodes.Landing(r.Context())
+	if err != nil {
+		writeInternal(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, view)
+}
+
+func (h *Handler) getLandingScript(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, map[string]string{"script": nodeservice.LandingSetupScript()})
+}
+
+func (h *Handler) setLanding(w http.ResponseWriter, r *http.Request) {
+	var input nodeservice.LandingInput
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	view, err := h.deps.Nodes.SetLanding(r.Context(), input)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, view)
+}
+
+func (h *Handler) getLandingRules(w http.ResponseWriter, r *http.Request) {
+	view, err := h.deps.Nodes.LandingRules(r.Context())
+	if err != nil {
+		writeInternal(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, view)
+}
+
+func (h *Handler) setLandingRules(w http.ResponseWriter, r *http.Request) {
+	var input nodeservice.LandingRulesInput
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	view, err := h.deps.Nodes.SetLandingRules(r.Context(), input)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, view)
+}
+
+func (h *Handler) refreshLandingRules(w http.ResponseWriter, r *http.Request) {
+	var input nodeservice.LandingRuleSourceInput
+	if !decodeJSON(w, r, &input) {
+		return
+	}
+	view, err := h.deps.Nodes.UpdateLandingRuleSource(r.Context(), input)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, view)
 }
 
 func (h *Handler) createOutbound(w http.ResponseWriter, r *http.Request) {

@@ -1243,7 +1243,31 @@ func (s *Service) reconcile(ctx context.Context) error {
 		}
 		items = append(items, singbox.NodeWithClients{Node: node, Clients: clients})
 	}
-	config, err := singbox.GenerateWithOutbounds(items, outbounds)
+	landing, _, err := s.loadLanding(ctx)
+	if err != nil {
+		return err
+	}
+	var ai *singbox.AIRouting
+	if landing.Enabled {
+		ai, err = parseLandingURI(landing.URI)
+		if err != nil {
+			return err
+		}
+		ai.Include, ai.Exclude = landing.Include, landing.Exclude
+		ai.Base = landing.RuleBase
+		for _, item := range items {
+			if !item.Node.Enabled || item.Node.OutboundID != nil || TemporarySource(item.Node) != "" {
+				continue
+			}
+			if landing.InboundID == 0 || landing.InboundID == item.Node.ID {
+				ai.InboundIDs = append(ai.InboundIDs, item.Node.ID)
+			}
+		}
+		if landing.InboundID != 0 && len(ai.InboundIDs) == 0 {
+			return fmt.Errorf("legacy AI inbound %d is no longer available; save landing settings to enable all regular inbounds", landing.InboundID)
+		}
+	}
+	config, err := singbox.GenerateWithAIRouting(items, outbounds, ai)
 	if err != nil {
 		_ = s.store.RecordEvent(ctx, "error", "config_generation_failed", "节点配置生成失败，现有配置保持不变")
 		return err

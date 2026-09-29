@@ -5,6 +5,7 @@ import { download, request, setCSRF, type ApiError } from "./api";
 import CommonNodesModal from "./components/CommonNodesModal.vue";
 import DropdownField from "./components/DropdownField.vue";
 import NodeFormModal from "./components/NodeFormModal.vue";
+import LandingPanel from "./components/LandingPanel.vue";
 
 interface Session { username: string; csrfToken: string; setupRequired: boolean; adminPath: string; defaultCredentials: boolean }
 interface NodePortSettings { startPort: number; nextPort: number }
@@ -154,6 +155,7 @@ const subscription = ref<SubscriptionInfo | null>(null);
 const copiedSubscriptionFormat = ref<SubscriptionFormat | null>(null);
 const showNodeForm = ref(false);
 const showCommonNodes = ref(false);
+const showLanding = ref(false);
 const commonNodesSubmitting = ref(false);
 const commonNodesError = ref("");
 const editingNodeId = ref<number | null>(null);
@@ -1328,6 +1330,8 @@ function residentialNodeFaulted(node: NodeRecord): boolean {
         </div>
       </header>
 
+      <p v-if="systemInfo.demoPreview" class="alert warning" role="status">{{ tr("本地界面演示：节点和规则均为示例，操作不会应用到 VPS。请勿在这里填写真实节点链接。", "Local UI preview: nodes and rules are samples. Changes do not reach a VPS. Do not enter real node links here.") }}</p>
+
       <p v-if="session.defaultCredentials" class="alert warning default-password-warning">{{ tr("当前密码为默认密码，请及时修改！", "The current password is the default password. Change it immediately!") }}</p>
       <p v-if="error && !showSystemSettings" class="alert error">{{ error }} <button class="danger-link" type="button" @click="retryRefresh">{{ tr("重试加载", "Retry") }}</button></p>
       <p v-if="notice && !showSystemSettings" class="alert success">{{ notice }}</p>
@@ -1411,6 +1415,13 @@ function residentialNodeFaulted(node: NodeRecord): boolean {
             <div class="row-actions"><button class="ghost" @click="editNode(node)">{{ tr("编辑", "Edit") }}</button><button class="ghost" @click="cloneNode(node)">{{ tr("复制", "Copy") }}</button><button class="danger-link" @click="deleteNode(node)">{{ tr("删除", "Delete") }}</button></div>
           </div>
         </section>
+      </div>
+
+      <div id="landing-section" class="page">
+        <div class="section-heading"><div><h2>{{ tr("配置落地机", "Japan Landing") }}</h2></div>
+          <button class="ghost compact" type="button" :aria-expanded="showLanding" @click="showLanding = !showLanding">{{ showLanding ? tr("收起", "Collapse") : tr("配置", "Configure") }}</button>
+        </div>
+        <LandingPanel v-if="showLanding" class="panel" :language="language" :preview="systemInfo.demoPreview === true" />
       </div>
 
       <div id="outbounds-section" class="page">

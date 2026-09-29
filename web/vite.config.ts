@@ -9,8 +9,8 @@ export default defineConfig({
   base: "./",
   server: {
     proxy: {
-      "/api": "http://127.0.0.1:8080",
-      "/sub": "http://127.0.0.1:8080"
+      "/api": `http://127.0.0.1:${process.env.JUI_PREVIEW_PORT || 8080}`,
+      "/sub": `http://127.0.0.1:${process.env.JUI_PREVIEW_PORT || 8080}`
     }
   }
 });
