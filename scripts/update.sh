@@ -323,7 +323,8 @@ systemctl is-enabled --quiet j-ui-sing-box.service && previous_singbox_enabled=1
 install -d -m 0700 "${temporary_directory}/trees"
 services_quiesced=1
 if [[ $previous_jui_active -eq 1 ]]; then systemctl stop j-ui.service; fi
-if [[ $previous_singbox_active -eq 1 ]]; then systemctl stop j-ui-sing-box.service; fi
+# sing-box does not access SQLite. Keep the existing proxy process serving
+# traffic while the application, engine binary, and unit files are replaced.
 if systemctl list-units --all --plain --no-legend 'jui-vpngate-*' | grep -q .; then
   /usr/local/bin/j-ui cleanup-vpngate
 fi

@@ -45,6 +45,26 @@ func TestUpdateHealthCheckSupportsLoopbackHTTPS(t *testing.T) {
 	}
 }
 
+func TestUpdateKeepsSingboxRunningUntilReplacementIsReady(t *testing.T) {
+	script, err := os.ReadFile("update.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(script)
+	quiesce := strings.Index(content, `services_quiesced=1`)
+	replacement := strings.Index(content, `install -m 0755 "${temporary_directory}/sing-box" /usr/local/lib/j-ui/sing-box`)
+	restart := strings.Index(content, `systemctl restart j-ui-sing-box.service j-ui.service`)
+	if quiesce < 0 || replacement < 0 || restart < 0 || quiesce >= replacement || replacement >= restart {
+		t.Fatal("updater must keep sing-box serving until the replacement is installed, then restart it")
+	}
+	if strings.Contains(content[quiesce:replacement], `systemctl stop j-ui-sing-box.service`) {
+		t.Fatal("updater must not stop sing-box before replacing files")
+	}
+	if !strings.Contains(content, `systemctl stop j-ui.service j-ui-sing-box.service 2>/dev/null || true`) {
+		t.Fatal("failure rollback must still stop both services before restoring files")
+	}
+}
+
 func TestUpdateMigratesResidentialRuntimeForLegacyUpgrades(t *testing.T) {
 	updateScript, err := os.ReadFile("update.sh")
 	if err != nil {
