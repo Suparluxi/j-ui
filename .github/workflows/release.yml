@@ -33,18 +33,18 @@ jobs:
       - run: go test ./...
       - run: go vet ./...
       - run: bash -n scripts/*.sh
-      - name: Validate generated configs with sing-box 1.14.0
+      - name: Validate generated configs with sing-box 1.14.4
         shell: bash
         run: |
           set -Eeuo pipefail
-          archive="sing-box-1.14.0-linux-amd64.tar.gz"
+          archive="sing-box-1.14.4-linux-amd64.tar.gz"
           curl -fsSL \
-            "https://github.com/SagerNet/sing-box/releases/download/v1.14.0/${archive}" \
+            "https://github.com/SagerNet/sing-box/releases/download/v1.14.4/${archive}" \
             -o "/tmp/${archive}"
-          echo "2375de6999f4f56ab46b4fc5ddf26a6aba1d3e61a0f4e7ddec2f4690457d5f63  /tmp/${archive}" |
+          echo "699a1b510aa4396b2176d32d1181920399ebf1e267835da6f3b598d0f7c24968  /tmp/${archive}" |
             sha256sum --check --status
           tar -xzf "/tmp/${archive}" -C /tmp
-          SINGBOX_TEST_BINARY="/tmp/sing-box-1.14.0-linux-amd64/sing-box" \
+          SINGBOX_TEST_BINARY="/tmp/sing-box-1.14.4-linux-amd64/sing-box" \
             go test ./internal/engine/singbox
       - name: Validate subscriptions with Mihomo 1.19.29
         shell: bash
@@ -66,21 +66,21 @@ jobs:
           version="${GITHUB_REF_NAME#v}"
           mkdir -p release
           curl -fsSL \
-            "https://raw.githubusercontent.com/SagerNet/sing-box/v1.14.0/LICENSE" \
+            "https://raw.githubusercontent.com/SagerNet/sing-box/v1.14.4/LICENSE" \
             -o /tmp/LICENSE.sing-box
           for architecture in amd64 arm64; do
             case "$architecture" in
-              amd64) singbox_sha256="2375de6999f4f56ab46b4fc5ddf26a6aba1d3e61a0f4e7ddec2f4690457d5f63" ;;
-              arm64) singbox_sha256="04d9b40bc98dc55b6f509ce3292145c65478f65866bea64826ebb2f382385088" ;;
+              amd64) singbox_sha256="699a1b510aa4396b2176d32d1181920399ebf1e267835da6f3b598d0f7c24968" ;;
+              arm64) singbox_sha256="436441f76ee2f7fe21b5b2d426d3cb261a480455a704865789ad533e4273ec26" ;;
             esac
-            singbox_archive="sing-box-1.14.0-linux-${architecture}.tar.gz"
+            singbox_archive="sing-box-1.14.4-linux-${architecture}.tar.gz"
             if [[ ! -s "/tmp/${singbox_archive}" ]]; then
               curl -fsSL \
-                "https://github.com/SagerNet/sing-box/releases/download/v1.14.0/${singbox_archive}" \
+                "https://github.com/SagerNet/sing-box/releases/download/v1.14.4/${singbox_archive}" \
                 -o "/tmp/${singbox_archive}"
             fi
             echo "${singbox_sha256}  /tmp/${singbox_archive}" | sha256sum --check --status
-            if [[ ! -x "/tmp/sing-box-1.14.0-linux-${architecture}/sing-box" ]]; then
+            if [[ ! -x "/tmp/sing-box-1.14.4-linux-${architecture}/sing-box" ]]; then
               tar -xzf "/tmp/${singbox_archive}" -C /tmp
             fi
             CGO_ENABLED=0 GOOS=linux GOARCH="$architecture" go build \
@@ -90,7 +90,7 @@ jobs:
             package="j-ui_${version}_linux_${architecture}"
             mkdir -p "$package/deploy" "$package/scripts"
             cp j-ui "$package/"
-            cp "/tmp/sing-box-1.14.0-linux-${architecture}/sing-box" "$package/sing-box"
+            cp "/tmp/sing-box-1.14.4-linux-${architecture}/sing-box" "$package/sing-box"
             cp \
               deploy/empty-sing-box.json \
               deploy/j-ui-certificate-issue@.service \
@@ -136,8 +136,8 @@ jobs:
             rm -rf "$package"
           done
           curl -fsSL \
-            "https://github.com/SagerNet/sing-box/archive/refs/tags/v1.14.0.tar.gz" \
-            -o release/sing-box-1.14.0-source.tar.gz
+            "https://github.com/SagerNet/sing-box/archive/refs/tags/v1.14.4.tar.gz" \
+            -o release/sing-box-1.14.4-source.tar.gz
           cp scripts/install.sh release/j-ui-install.sh
           chmod 0755 release/j-ui-install.sh
           (cd release && sha256sum j-ui-install.sh *.tar.gz > checksums.txt)

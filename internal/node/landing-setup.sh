@@ -45,17 +45,17 @@ else
     exit 1
   fi
   case "$(uname -m)" in
-    x86_64) arch=amd64; digest=2375de6999f4f56ab46b4fc5ddf26a6aba1d3e61a0f4e7ddec2f4690457d5f63 ;;
-    aarch64) arch=arm64; digest=04d9b40bc98dc55b6f509ce3292145c65478f65866bea64826ebb2f382385088 ;;
+    x86_64) arch=amd64; digest=699a1b510aa4396b2176d32d1181920399ebf1e267835da6f3b598d0f7c24968 ;;
+    aarch64) arch=arm64; digest=436441f76ee2f7fe21b5b2d426d3cb261a480455a704865789ad533e4273ec26 ;;
     *) echo 'Only Linux amd64 and arm64 are supported.' >&2; exit 1 ;;
   esac
   tmp=$(mktemp -d)
   trap 'rm -rf -- "$tmp"' EXIT
-  archive="sing-box-1.14.0-linux-$arch.tar.gz"
-  curl -fL --retry 3 -o "$tmp/$archive" "https://github.com/SagerNet/sing-box/releases/download/v1.14.0/$archive"
+  archive="sing-box-1.14.4-linux-$arch.tar.gz"
+  curl -fL --retry 3 -o "$tmp/$archive" "https://github.com/SagerNet/sing-box/releases/download/v1.14.4/$archive"
   printf '%s  %s\n' "$digest" "$tmp/$archive" | sha256sum -c - >/dev/null
-  tar -xzf "$tmp/$archive" -C "$tmp" "sing-box-1.14.0-linux-$arch/sing-box"
-  local_binary="$tmp/sing-box-1.14.0-linux-$arch/sing-box"
+  tar -xzf "$tmp/$archive" -C "$tmp" "sing-box-1.14.4-linux-$arch/sing-box"
+  local_binary="$tmp/sing-box-1.14.4-linux-$arch/sing-box"
   uuid=$($local_binary generate uuid)
   keys=$($local_binary generate reality-keypair)
   private=$(printf '%s\n' "$keys" | awk -F ': ' '$1 == "PrivateKey" {print $2}')

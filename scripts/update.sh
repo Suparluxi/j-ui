@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 readonly repository="${JUI_GITHUB_REPOSITORY:-Suparluxi/j-ui}"
-readonly singbox_version="1.14.0"
+readonly singbox_version="1.14.4"
 temporary_directory=""
 result_recorded=0
 target_version="${JUI_VERSION:-unknown}"
